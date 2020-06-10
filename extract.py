@@ -36,7 +36,7 @@ def extract_team(team_id, league):
             if not row[3] is np.nan:
                 info_dict[row[2]] = row[3]
 
-        elif row[1] == 'start' or row[1] == 'sub':
+        elif row[1] == 'start':
             keys = ['player_id', 'name', 'is_away', 'bat_pos', 'field_pos']
             start = dict(zip(keys, row[2:7]))
             # start = Start().load(start_dict)
@@ -53,6 +53,7 @@ def extract_team(team_id, league):
             keys = ['player_id', 'name', 'is_away', 'bat_pos', 'field_pos']
             sub = dict(zip(keys, row[2:7]))
             sub['play_idx'] = len(plays)
+            subs.append(sub)
 
         elif row[1] == 'data':
             keys = ['type', 'pitcher_id', 'data']
