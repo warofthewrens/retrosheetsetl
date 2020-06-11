@@ -37,20 +37,20 @@ def extract_team(team_id, league):
                 info_dict[row[2]] = row[3]
 
         elif row[1] == 'start':
-            keys = ['player_id', 'name', 'is_away', 'bat_pos', 'field_pos']
+            keys = ['player_id', 'name', 'is_home', 'bat_pos', 'field_pos']
             start = dict(zip(keys, row[2:7]))
             # start = Start().load(start_dict)
             starts.append(start)
 
         elif row[1] == 'play':
-            keys = ['inning', 'is_away', 'batter_id', 'count', 'pitches', 'play']
+            keys = ['inning', 'is_home', 'batter_id', 'count', 'pitches', 'play']
             play = dict(zip(keys, row[2:]))
             play['pitches'] = str(play['pitches'])
             # play = Play().load(play_dict)
             plays.append(play)
         
         elif row[1] == 'sub':
-            keys = ['player_id', 'name', 'is_away', 'bat_pos', 'field_pos']
+            keys = ['player_id', 'name', 'is_home', 'bat_pos', 'field_pos']
             sub = dict(zip(keys, row[2:7]))
             sub['play_idx'] = len(plays)
             subs.append(sub)

@@ -15,7 +15,7 @@ def validate_play(play):
 
 class Play(Schema):
     inning = fields.Integer(validate=validate.Range(1, 30))
-    is_away = fields.Boolean()
+    is_home = fields.Boolean()
     batter_id = fields.String()
     count = fields.String(validate=validate_count)
     pitches = fields.String(validate=validate_pitches)
