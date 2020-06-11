@@ -1,6 +1,7 @@
 # retrosheets_etl.py
 from extract import extract_team
 from transform import transform_game
+import time
 
 def main():
     game = extract_team('2019OAK', 'A')
@@ -13,4 +14,7 @@ def main():
     
     # print(data)
 
+start = time.time()
 main()
+end = time.time()
+print(end - start)
