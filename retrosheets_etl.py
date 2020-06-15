@@ -4,7 +4,7 @@ from transform import transform_game
 import time
 
 def main():
-    game = extract_team('2019OAK', 'A')
+    game = extract_team('2019NYA', 'A')
     transform_game(game)
     
     # print(info)
