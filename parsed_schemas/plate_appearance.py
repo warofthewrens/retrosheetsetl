@@ -51,8 +51,12 @@ class PlateAppearance(Schema):
     third_dest = fields.String()
     first_po = fields.String()
     second_po = fields.String()
+    third_po = fields.String()
     first_ast = fields.String()
     second_ast = fields.String()
+    third_ast = fields.String()
+    fourth_ast = fields.String()
+    fifth_ast = fields.String()
 
     @pre_dump
     def expand_play_str(self, data, **kwargs):
