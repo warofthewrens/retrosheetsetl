@@ -13,11 +13,11 @@ def expand(data):
 class PlateAppearance(Schema):
     game_id = fields.String()
     inning = fields.Integer()
-    batting_team_home = fields.Boolean(data_val = 'is_home')
+    is_home = fields.Boolean(data_key = 'batting_team_home')
     outs = fields.Integer()
     balls = fields.Integer()
     strikes = fields.Integer()
-    sequence = fields.String(data_val = 'pitches')
+    pitches = fields.String(data_key='sequence')
     away_runs = fields.Integer()
     home_runs = fields.Integer()
     batter_id = fields.String()
@@ -32,7 +32,7 @@ class PlateAppearance(Schema):
     lineup_pos = fields.Integer()
     event_type = fields.Integer()
     ab_flag = fields.Boolean()
-    hit_val = fields.Integer(validate = validate.Range(1, 4))
+    hit_val = fields.Integer()
     sac_bunt = fields.Boolean()
     sac_fly = fields.Boolean()
     outs_on_play = fields.Integer()
@@ -61,6 +61,8 @@ class PlateAppearance(Schema):
     @pre_dump
     def expand_play_str(self, data, **kwargs):
         data = expand(data)
+        data['game_id'] = self.context['game_id']['game_id']
+        data['date'] = self.context['date']
         return data
 
     @pre_dump
