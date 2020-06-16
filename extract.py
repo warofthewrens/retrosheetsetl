@@ -13,11 +13,12 @@ def extract_team(team_id, league):
     df = pd.read_table('C:\\Users\warre\\Documents\\retrosheetetl\\game_files\\' + file_name, sep = ',', error_bad_lines=False, header=None, names=list(range(7)), converters={4: lambda x: str(x)})
     
     first_game = True
+    games = []
     starts = []
     subs = []
     plays = []
     data = []
-
+    game_id = ''
     info = None
     info_dict = {}
     for row in df.itertuples():
@@ -25,7 +26,19 @@ def extract_team(team_id, league):
             if not first_game == True:
                 # info = info_load(info_dict)
                 # info_dict = {}
-                break
+                keys = ['game_id', 'info', 'lineup', 'plays', 'subs', 'data']
+                game_dict = dict(zip(keys, [game_id, info_dict, starts, plays, subs, data]))
+        
+                game = Game().load(game_dict)
+                games.append(game)
+                starts = []
+                subs = []
+                plays = []
+                data = []
+                game_id = ''
+                info = None
+                info_dict = {}
+                
             first_game = False
             game_id = {'game_id': row[2]}
         
@@ -63,8 +76,10 @@ def extract_team(team_id, league):
     
     keys = ['game_id', 'info', 'lineup', 'plays', 'subs', 'data']
     game_dict = dict(zip(keys, [game_id, info_dict, starts, plays, subs, data]))
+
     game = Game().load(game_dict)
-    return game
+    games.append(game)
+    return games
 
 def info_load(info):
     return Info().load(info)

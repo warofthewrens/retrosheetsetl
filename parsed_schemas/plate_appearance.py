@@ -1,16 +1,10 @@
 from marshmallow import Schema, fields, validate, pre_dump
 import re
 
-def expand(data):
-    # print(data)
-    # play_arr = data['play'].split('/')
-
-    # for item in play_arr:
-    #     if 
-    return data
-
 
 class PlateAppearance(Schema):
+    pa_id = fields.Integer()
+    play = fields.String()
     game_id = fields.String()
     inning = fields.Integer()
     is_home = fields.Boolean(data_key = 'batting_team_home')
@@ -60,7 +54,6 @@ class PlateAppearance(Schema):
 
     @pre_dump
     def expand_play_str(self, data, **kwargs):
-        data = expand(data)
         data['game_id'] = self.context['game_id']['game_id']
         data['date'] = self.context['date']
         return data
