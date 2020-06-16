@@ -1,18 +1,17 @@
 # retrosheets_etl.py
 from extract import extract_team
-from transform import transform_game
+from transform import transform_game 
+from load import create_tables, load_data
 import time
 
 def main():
-    game = extract_team('2019ATL', 'N')
-    transform_game(game)
-    
-    # print(info)
-    # print(starts)
-    # for play in plays:
-    #     print(play)
-    
-    # print(data)
+    games = extract_team('2019ARI', 'N')
+    results = {'PlateAppearance': []}
+    for game in games:
+        parsed_data = transform_game(game)
+        results['PlateAppearance'].extend(parsed_data['plate_appearance'])
+    create_tables()
+    load_data(results)
 
 start = time.time()
 main()
