@@ -15,6 +15,7 @@ def validate_id(game_id):
         raise ValidationError('Not a valid date in id')
     if int(game_id[11]) not in range(0,3):
         raise ValidationError('Not a valid game number in id')
+    print(game_id)
 
 class GameId(Schema):
     game_id = fields.String(validate=validate_id)

@@ -5,7 +5,7 @@ from load import create_tables, load_data
 import time
 
 def main():
-    games = extract_team('2019ARI', 'N')
+    games = extract_team('2019PHI', 'N')
     results = {'PlateAppearance': []}
     for game in games:
         parsed_data = transform_game(game)

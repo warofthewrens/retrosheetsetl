@@ -40,7 +40,10 @@ class PlateAppearance(BASE):
     bunt_flag = Column(BOOLEAN(3))
     foul_flag = Column(BOOLEAN(3))
     hit_loc = Column(SMALLINT(3))
-    error_player_id = Column(VARCHAR(8))
+    first_error = Column(VARCHAR(8))
+    second_error = Column(VARCHAR(3))
+    third_error = Column(VARCHAR(3))
+    num_errors = Column(VARCHAR(3))
     batter_dest = Column(VARCHAR(3))
     
     first_po = Column(VARCHAR(8))
