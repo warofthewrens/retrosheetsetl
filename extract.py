@@ -8,9 +8,19 @@ from raw_schemas.data import Data
 from raw_schemas.game import Game
 import numpy as np
 
+def extract_roster(team_id):
+    file_name = team_id[4:] + team_id[0:4] + '.ROS'
+    df = pd.read_table('C:\\Users\warre\\Documents\\retrosheetetl\\game_files\\' + file_name, sep = ',', 
+                        error_bad_lines=False, names=['player_id', 'player_last_name', 'player_first_name', 'bats', 'throws', 'team', 'pos'])
+    df = df.set_index('player_id')
+    roster = df.to_dict('index')
+    return roster
+
+
 def extract_team(team_id, league):
     file_name = team_id + '.EV' + league
-    df = pd.read_table('C:\\Users\warre\\Documents\\retrosheetetl\\game_files\\' + file_name, sep = ',', error_bad_lines=False, header=None, names=list(range(7)), converters={4: lambda x: str(x)})
+    df = pd.read_table('C:\\Users\warre\\Documents\\retrosheetetl\\game_files\\' + file_name, sep = ',', 
+                        error_bad_lines=False, header=None, names=list(range(7)), converters={4: lambda x: str(x)})
     
     first_game = True
     games = []
