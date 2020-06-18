@@ -1,9 +1,9 @@
 from marshmallow import Schema, fields, ValidationError
 
 # TODO: fill in all teams
-team_set = ['ANA', 'ARI', 'ATL', 'BAL', 'BOS', 'CHA', 'CHN', 'CIN', 'CLE', 'COL', 'DET', 'HOU',
-            'HOU', 'KCA', 'LAN', 'MIA', 'MIL', 'MIN', 'NYA', 'NYN', 'OAK', 'PHI', 'PIT', 'SEA',
-            'SFN', 'SLN', 'TBA', 'TEX', 'TOR', 'WAS']
+team_set = set(['ANA', 'ARI', 'ATL', 'BAL', 'BOS', 'CHA', 'CHN', 'CIN', 'CLE', 'COL', 'DET', 'HOU',
+            'KCA', 'LAN', 'MIA', 'MIL', 'MIN', 'NYA', 'NYN', 'OAK', 'PHI', 'PIT', 'SEA',
+            'SFN', 'SLN', 'SDN', 'TBA', 'TEX', 'TOR', 'WAS'])
 
 def validate_id(game_id):
     print('validating...')

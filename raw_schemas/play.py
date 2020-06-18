@@ -32,12 +32,14 @@ class Play(Schema):
                 moves = play[1].split(';')
                 i = 0
                 for move in moves:
-                    runner = move[move.find('X') - 1]
-                    if runner != '-':
+                    thrown_out = move.find('X')
+                    if thrown_out != -1:
+                        runner = move[thrown_out - 1]
                         fielding_info = move.find('/')
                         if fielding_info == -1:
                             fielding_info = move.find(')')
-                        moves[i] = move[0:fielding_info] + '(' + runner + ')' + move[fielding_info:]
+                        if move[move.find('(')+ 1: move.find(')')] != 'TH':
+                            moves[i] = move[0:fielding_info] + '(' + runner + ')' + move[fielding_info:]
                     i+=1
                 
                 play[1] = ';'.join(moves)
@@ -50,6 +52,23 @@ class Play(Schema):
             event[0] = outs
             event = '/'.join(event)
             play[0] = event
+        
+        if event[0][0:2] in set(['WP', 'PB', 'BK', 'CS', 'OA', 'DI', 'PO']) and len(play) > 1:
+            if '-H' in play[1]:
+                moves = play[1].split(';')
+                i = 0
+                for move in moves:
+                    scored = move.find('-H')
+                    if scored != -1 and '(NR)' not in move:
+                        moves[i] = move[:scored] + '(NR)' + move[scored:]
+                    i+=1
+                play[1] = ';'.join(moves)
+        
+        # if event[0][0:3] == 'SBH':
+        #     if '(NR)' not in event[0]:
+        #         print(data['play'])
+        #         event[0] = event[0][0:3] + '(NR)' + event[0][3:]
+        #         play[0] = '/'.join(event)
         data['play'] = '.'.join(play)
         return data
 
