@@ -20,9 +20,12 @@ def load_data(results):
     session = get_session()
     for model in MODELS:
         data = results[model.__tablename__]
-
+        i = 0
         # Here is where we convert directly the dictionary output of our marshmallow schema into sqlalchemy
         for row in data:
+            if i % 1000 == 0:
+                print('loading...', i)
+            i+=1
             session.merge(model(**row))
 
     session.commit()
