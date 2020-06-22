@@ -1,8 +1,9 @@
 ''' load functions for nhl data tables '''
 from models.sqla_utils import BASE, get_session
 from models.plate_appearance import PlateAppearance
+from models.game import Game
 from sqlalchemy import MetaData
-MODELS = [PlateAppearance]
+MODELS = [PlateAppearance, Game]
 
 
 def create_tables():

@@ -1,4 +1,5 @@
 from parsed_schemas.plate_appearance import PlateAppearance
+from parsed_schemas.game import Game
 from collections import defaultdict
 import re  
 import copy
@@ -85,7 +86,6 @@ def add_ast(ast_player, play, state):
     state['ast'] += 1
     play[ast_dict[state['ast']]] = get_field_id(play['is_home'], ast_player, state)
 
-
 def score_run(move, play, state):
     info_index = 0
     no_rbi = False
@@ -109,7 +109,7 @@ def score_run(move, play, state):
         end_index = modifiers.find(')')
         fielding_info = modifiers[info_index + 1: end_index]
         modifiers = modifiers[end_index + 1:]
-
+    state['runs_allowed'][state['responsible_pitchers'][move[0]]]+=1
     play['runs_on_play'] += 1
     if move[0] != 'B':
         play[scorer_dict[play['runs_on_play']]] = state['runners_before'][int(move[0])]
@@ -130,7 +130,7 @@ def stolen_bases(sbs, play, state):
             score_run('3-H(NR)', play, state)
             play['third_dest'] = 'H'
         not_moved.remove(int(prev_base[base]))
-    
+        play[runner_event[prev_base[base]]] = 'S'
     for not_move in not_moved:
         if state['runners_before'][not_move] != '':
             play[runner_dest[str(not_move)]] = str(not_move)
@@ -164,8 +164,6 @@ def runner_moves(moves, play, runners_out, state):
                     for field in fielding_info:
                         if field not in set(['TH', 'NR', 'UR', 'TUR', 'WP', 'PB']):
                             event_description(field, play, state, True)
-                            # if move[0] == 'B' and play['play'][0] == 'K':
-                            #     outs_this_play -= 1
                 if move[2] == 'H':
                     score_run(move, play, state)
                 play[runner_dest[move[0]]] = move[2]
@@ -174,8 +172,6 @@ def runner_moves(moves, play, runners_out, state):
             else:
                 fielding_info = move[move.find('(')+ 1: move.find(')')]
                 outs_this_play += event_description(fielding_info, play, state, True)[1]
-                # if move[0] == 'B' and play['play'][0] == 'K':
-                #     outs_this_play -= 1
                 if outs_this_play > 0:
                     play[runner_dest[move[0]]] = 'O'
                 else:
@@ -268,9 +264,7 @@ def event_description(item, play, state, second_event):
         sbs = item.split(';')
         stolen_bases(sbs, play, state)
         event_type = 4
-        play[runner_event[prev_base[item[2]]]] = 'S'
         
-    
     elif item[0:2] == 'DI':
         event_type = 5
     
@@ -406,7 +400,6 @@ def event_description(item, play, state, second_event):
         else:
             error_player = item[item.find('E') + 1]
             add_error(error_player, play, state)
-            print('Caught stealing error')
 
     elif item[0] == 'C' and item != 'CS':
         event_type = 17
@@ -455,6 +448,8 @@ def modifier(modifier, play, runners_out, state):
     # Force out
     if modifier == 'FO':
         play['batter_dest'] = '1'
+        if len(runners_out) > 0:
+            state['responsible_pitchers']['B'] = state['responsible_pitchers'][str(runners_out[0])]
 
     # Sac fly
     if modifier == 'SF':
@@ -502,15 +497,9 @@ def expand_play(play, state):
     # Runner moves
     if (len(moves) > 1):
         outs_this_play_rm = runner_moves(moves[1], play, runners_out, state)
-        if outs_this_play_rm < 0:
-            print(play['play'])
-            print('event_parser', outs_this_play_ed)
     # Takes care of updating runners even if there are no explicit runner movements
     else:
         outs_this_play_rm = runner_moves(None, play, runners_out, state)
-        if outs_this_play_rm < 0:
-            print(play['play'])
-            print('event_parser', outs_this_play_ed)
     
 
     # calculate outs
@@ -557,7 +546,7 @@ def build_lineups(starts):
     return lineups
 
 def transform_plays(plays, subs, rows, state):
-    print('transforming')
+    # print('transforming')
     print(state['game_id'])
     pa_id = 0
     
@@ -567,6 +556,8 @@ def transform_plays(plays, subs, rows, state):
     state['runners_before'] = defaultdict(str)
     state['po'] = 0
     state['ast'] = 0
+    state['responsible_pitchers'] = defaultdict(str)
+    state['runs_allowed'] = defaultdict(int)
 
     sub_spot = {}
     for sub in subs:
@@ -605,6 +596,10 @@ def transform_plays(plays, subs, rows, state):
             if (play['field_pos'] not in set([11, 12])):
                 play['lineup_pos'] = get_batter_lineup(play['batter_id'], state)
             play['pitcher_id'] = get_field_id(play['is_home'], 1, state)
+            pitchers = set([])
+            for pitcher in state['responsible_pitchers'].values():
+                pitchers.add(pitcher)
+            state['responsible_pitchers']['B'] = play['pitcher_id']
             play['pitcher_hand'] = state['roster'][play['pitcher_id']]['throws']
             play['batter_hand'] = state['roster'][play['batter_id']]['bats']
             if play['batter_hand'] == 'B':
@@ -612,22 +607,38 @@ def transform_plays(plays, subs, rows, state):
                     play['batter_hand'] = 'R'
                 else:
                     play['batter_hand'] = 'L'
-            if (len(play['batter_hand']) > 2):
-                print(play['batter_hand'])
             expand_play(play, state)
             play['ab_flag'] = ((play['event_type'] in set([2, 3, 18, 19, 20, 21, 22, 23])) and (play['sac_fly'] == False) and (play['sac_bunt'] == False))
             play['pa_flag'] = play['event_type'] not in set([4, 5, 6, 7, 8, 9, 10, 11, 12, 13])
             p_a = PlateAppearance(context=state).dump(play)
             rows['plate_appearance'].append(p_a)
+            state['inning'] = play['inning']
+            if state['game_id']['game_id'] == 'SLN201908311':
+                print(play['play'])
+                print(state['responsible_pitchers'])
+                print(state['runners_before'])
             pa_id += 1
         
         play_idx+=1
-    return
+    
+    return state
 
 
 def transform_game(game, roster):
-    rows = {table: [] for table in ['plate_appearance']}
+    rows = {table: [] for table in ['plate_appearance', 'game']}
     lineups = build_lineups(game['lineup'])
-    context = {'game_id': game['game_id'], 'date': game['info']['date'], 'lineups': lineups, 'roster': roster}
-    transform_plays(game['plays'], game['subs'], rows, context)
+    context = {
+        'game_id': game['game_id'], 'date': game['info']['date'], 
+        'lineups': lineups, 'roster': roster, 'home_team': game['info']['home_team'],
+        'away_team': game['info']['visiting_team']
+        }
+    state = transform_plays(game['plays'], game['subs'], rows, context)
+    game = {
+        'lineup': game['lineup'],
+        'data': game['data'],
+        'info': game['info'],
+        'game_id': game['game_id']['game_id']
+    }
+    new_game = Game(context=state).dump(game)
+    rows['game'].append(new_game)
     return rows

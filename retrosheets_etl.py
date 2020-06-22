@@ -23,17 +23,19 @@ def main():
     
     # for al in al_teams:
     #     games.extend(extract_team('2019' + al, 'A'))
-    games.extend(extract_team('2019ATL', 'N'))
-    results = {'PlateAppearance': []}
+    games.extend(extract_team('2019SLN', 'N'))
+    results = {'PlateAppearance': [], 'Game': []}
     for game in games:
         parsed_data = transform_game(game, rosters)
         results['PlateAppearance'].extend(parsed_data['plate_appearance'])
+        results['Game'].extend(parsed_data['game'])
     create_tables()
     load_data(results)
 
 def get_rosters():
     for team in team_set:
         rosters.update(extract_roster('2019' + team))
+    return rosters
 
 
 start = time.time()
