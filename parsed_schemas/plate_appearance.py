@@ -100,12 +100,14 @@ class PlateAppearance(Schema):
         data['first_runner_id'] = self.context['runners_before'][1]
         data['second_runner_id'] = self.context['runners_before'][2]
         data['third_runner_id'] = self.context['runners_before'][3]
-        data['batter_team'] = self.context['roster'][data['batter_id']]['team']
-        data['pitcher_team'] = self.context['roster'][data['pitcher_id']]['team']
         if data['is_home']:
             data['sp_flag'] = self.context['lineups']['away_field_pos']['sp'] == data['pitcher_id']
+            data['batter_team'] = self.context['home_team']
+            data['pitcher_team'] = self.context['away_team']
         else:
             data['sp_flag'] = self.context['lineups']['home_field_pos']['sp'] == data['pitcher_id']
+            data['batter_team'] = self.context['away_team']
+            data['pitcher_team'] = self.context['home_team']
         for pos in range(2, 10):
             if data['is_home']:
                 data[pos_dict[pos]] = self.context['lineups']['away_field_pos'][pos]
@@ -124,18 +126,25 @@ class PlateAppearance(Schema):
         self.context['outs'] += data['outs_on_play']
         if data['third_dest'] in set(['3']):
             self.context['runners_before'][int(data['third_dest'])] = self.context['runners_before'][3]
+            self.context['responsible_pitchers'][data['third_dest']] = self.context['responsible_pitchers']['3']
         if data['third_dest'] in set(['O', 'H']):
             self.context['runners_before'][3] = ''
+            self.context['responsible_pitchers']['3'] = ''
         if data['second_dest'] in set(['2', '3']):
             self.context['runners_before'][int(data['second_dest'])] = self.context['runners_before'][2]
+            self.context['responsible_pitchers'][data['second_dest']] = self.context['responsible_pitchers']['2']
         if data['second_dest'] in set(['3', 'O', 'H']):
             self.context['runners_before'][2] = ''
+            self.context['responsible_pitchers']['2'] = ''
         if data['first_dest'] in set(['1', '2', '3']):
             self.context['runners_before'][int(data['first_dest'])] = self.context['runners_before'][1]
+            self.context['responsible_pitchers'][data['first_dest']] = self.context['responsible_pitchers']['1']
         if data['first_dest'] in set(['2', '3', 'O', 'H']):
             self.context['runners_before'][1] = ''
+            self.context['responsible_pitchers']['1'] = ''
         if data['batter_dest'] in set(['1', '2', '3']):
             self.context['runners_before'][int(data['batter_dest'])] = data['batter_id']
+            self.context['responsible_pitchers'][data['batter_dest']] = self.context['responsible_pitchers']['B']
 
         if data['batting_team_home']:
             self.context['home_runs'] += data['runs_on_play']
@@ -147,7 +156,10 @@ class PlateAppearance(Schema):
             self.context['runners_before'][2] = ''
             self.context['runners_before'][3] = ''
             self.context['outs'] = 0
-        
+            self.context['responsible_pitchers']['1'] = ''
+            self.context['responsible_pitchers']['2'] = ''
+            self.context['responsible_pitchers']['3'] = ''
+            self.context['responsible_pitchers']['B'] = ''
         self.context['po'] = 0
         self.context['ast'] = 0
         return data

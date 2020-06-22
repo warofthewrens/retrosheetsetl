@@ -16,6 +16,14 @@ def extract_roster(team_id):
     roster = df.to_dict('index')
     return roster
 
+def extract_roster_team(team_id):
+    file_name = team_id[4:] + team_id[0:4] + '.ROS'
+    df = pd.read_table('C:\\Users\warre\\Documents\\retrosheetetl\\game_files\\' + file_name, sep = ',', 
+                        error_bad_lines=False, names=['player_id', 'player_last_name', 'player_first_name', 'bats', 'throws', 'team', 'pos'])
+    df = df.set_index(['player_id', 'team'])
+    roster = df.to_dict('index')
+    return roster
+
 
 def extract_team(team_id, league):
     file_name = team_id + '.EV' + league

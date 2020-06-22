@@ -28,8 +28,22 @@ class Play(Schema):
         outs = event[0]
         flag=False
         if len(play) > 1:
+            moves = play[1].split(';')
+            # for move in moves:
+            #     info_index = move.find('(')
+            #     end_index = move.find(')')
+            #     fielding_info = move[info_index + 1: end_index]
+            #     move = move[end_index + 1:]
+            # # if it's an error or an out include the player getting thrown out/moving on an error
+            #     while info_index != -1:
+            #         if (fielding_info[0].isdigit() or fielding_info[0] == 'E'):
+            #             moves[i] = move[0:fielding_info] + '(' + runner + ')' + move[fielding_info:]
+
+            #         info_index = moves.find('(')
+            #         end_index = moves.find(')')
+            #         fielding_info = moves[info_index + 1: end_index]
+            #         moves = moves[end_index + 1:]
             if 'X' in play[1]:
-                moves = play[1].split(';')
                 i = 0
                 for move in moves:
                     thrown_out = move.find('X')
