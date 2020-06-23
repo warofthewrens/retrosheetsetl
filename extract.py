@@ -41,7 +41,7 @@ def extract_team(team_id, league):
     extract all home games from team team_id and load all data into a Game marshmallow schema
     @param team_id - team_id in the form YYYY + 3 letter team code
     @param league - either 'A' representing american league or 'N' representing national league
-    @return games - list of loaded raw_schema.Games
+    @return games - list of loaded raw_schema.Games 
     '''
     file_name = team_id + '.EV' + league
     df = pd.read_table('C:\\Users\warre\\Documents\\retrosheetetl\\game_files\\' + file_name, sep = ',', 
@@ -81,33 +81,19 @@ def extract_team(team_id, league):
             continue
 
         elif row[1] == 'info':
-            if not row[3] is np.nan:
-                info_dict[row[2]] = row[3]
+            handle_info(row, info_dict)
 
         elif row[1] == 'start':
-            keys = ['player_id', 'name', 'is_home', 'bat_pos', 'field_pos']
-            start = dict(zip(keys, row[2:7]))
-            # start = Start().load(start_dict)
-            starts.append(start)
-
+            handle_start(row, starts)
+            
         elif row[1] == 'play':
-            keys = ['inning', 'is_home', 'batter_id', 'count', 'pitches', 'play']
-            play = dict(zip(keys, row[2:]))
-            play['pitches'] = str(play['pitches'])
-            # play = Play().load(play_dict)
-            plays.append(play)
-        
+            handle_play(row, plays)
+            
         elif row[1] == 'sub':
-            keys = ['player_id', 'name', 'is_home', 'bat_pos', 'field_pos']
-            sub = dict(zip(keys, row[2:7]))
-            sub['play_idx'] = len(plays)
-            subs.append(sub)
+            handle_sub(row, subs, len(plays))
 
         elif row[1] == 'data':
-            keys = ['type', 'pitcher_id', 'data']
-            datum = dict(zip(keys, row[2:5]))
-            # datum = Data().load(data_dict)
-            data.append(datum)
+            handle_data(row, data)
     
     keys = ['game_id', 'info', 'lineup', 'plays', 'subs', 'data']
     game_dict = dict(zip(keys, [game_id, info_dict, starts, plays, subs, data]))
@@ -116,7 +102,45 @@ def extract_team(team_id, league):
     games.append(game)
     return games
 
-def info_load(info):
-    return Info().load(info)
+def handle_info(row, info_dict):
+    '''
+    handles all rows which has game info
+    '''
+    if not row[3] is np.nan:
+        info_dict[row[2]] = row[3]
+
+def handle_start(row, starts):
+    '''
+    handles a row which has starting lineup information
+    '''
+    keys = ['player_id', 'name', 'is_home', 'bat_pos', 'field_pos']
+    start = dict(zip(keys, row[2:7]))
+    starts.append(start)
+
+def handle_play(row, plays):
+    '''
+    handles a row which has play-by-play information
+    '''
+    keys = ['inning', 'is_home', 'batter_id', 'count', 'pitches', 'play']
+    play = dict(zip(keys, row[2:]))
+    play['pitches'] = str(play['pitches'])
+    plays.append(play)
+
+def handle_sub(row, subs, play_idx):
+    '''
+    handles a row which has substitution information
+    '''
+    keys = ['player_id', 'name', 'is_home', 'bat_pos', 'field_pos']
+    sub = dict(zip(keys, row[2:7]))
+    sub['play_idx'] = play_idx
+    subs.append(sub)
+
+def handle_data(row, data):
+    '''
+    handles rows of data which are exclusively earned run data
+    '''
+    keys = ['type', 'pitcher_id', 'data']
+    datum = dict(zip(keys, row[2:5]))
+    data.append(datum)
 
 # extract_team('sl', 's')
