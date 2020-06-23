@@ -41,5 +41,6 @@ def get_rosters():
 start = time.time()
 get_rosters()
 main()
+
 end = time.time()
 print(end - start)

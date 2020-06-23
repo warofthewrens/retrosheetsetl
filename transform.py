@@ -122,7 +122,6 @@ def add_ast(ast_player, play, state):
     state['ast'] += 1
     play[ast_dict[state['ast']]] = get_field_id(play['is_home'], ast_player, state)
 
-
 def score_run(move, play, state):
     '''
     score a run for the appropriate team and handle all required upkeep
@@ -314,8 +313,6 @@ def event_description(item, play, state, second_event):
         stolen_bases(sbs, play, state)
         event_type = 4
         
-        
-    
     elif item[0:2] == 'DI':
         event_type = 5
     
