@@ -9,6 +9,11 @@ from raw_schemas.game import Game
 import numpy as np
 
 def extract_roster(team_id):
+    '''
+    extracts roster from team 'team_id' with the index set to the player_id
+    @ param - team_id in the form YYYY + 3 letter team code
+    @ return - roster dictionary from player_ids to roster info
+    '''
     file_name = team_id[4:] + team_id[0:4] + '.ROS'
     df = pd.read_table('C:\\Users\warre\\Documents\\retrosheetetl\\game_files\\' + file_name, sep = ',', 
                         error_bad_lines=False, names=['player_id', 'player_last_name', 'player_first_name', 'bats', 'throws', 'team', 'pos'])
@@ -17,6 +22,12 @@ def extract_roster(team_id):
     return roster
 
 def extract_roster_team(team_id):
+    '''
+    extracts roster from team 'team_id' with the index set to the player_id
+    @ param - team_id in the form YYYY + 3 letter team code
+    @ return - roster dictionary from tuple of (player_ids, team_name) to roster info
+    different from extract_roster in that the dict key includes the team_name
+    '''
     file_name = team_id[4:] + team_id[0:4] + '.ROS'
     df = pd.read_table('C:\\Users\warre\\Documents\\retrosheetetl\\game_files\\' + file_name, sep = ',', 
                         error_bad_lines=False, names=['player_id', 'player_last_name', 'player_first_name', 'bats', 'throws', 'team', 'pos'])
@@ -26,6 +37,12 @@ def extract_roster_team(team_id):
 
 
 def extract_team(team_id, league):
+    '''
+    extract all home games from team team_id and load all data into a Game marshmallow schema
+    @param team_id - team_id in the form YYYY + 3 letter team code
+    @param league - either 'A' representing american league or 'N' representing national league
+    @return games - list of loaded raw_schema.Games
+    '''
     file_name = team_id + '.EV' + league
     df = pd.read_table('C:\\Users\warre\\Documents\\retrosheetetl\\game_files\\' + file_name, sep = ',', 
                         error_bad_lines=False, header=None, names=list(range(7)), converters={4: lambda x: str(x)})
