@@ -56,12 +56,24 @@ runner_event = {
 }
 
 def get_lineup_id(is_home, pos, state):
+    '''
+    returns the player id for position, pos in lineup of appropriate team
+    @param is_home - boolean for if batter is_home
+    @param pos - lineup position to lookup
+    @param state - game state which includes current lineups
+    '''
     if is_home:
         return state['lineups']['home_lineup'][pos]
     else:
         return state['lineups']['away_lineup'][pos]
 
 def get_field_id(is_home, pos, state):
+    '''
+    returns the player id for position, pos in lineup of appropriate team
+    @param is_home - boolean for if batter is_home
+    @param pos - lineup position to lookup
+    @param state - game state which includes current field positions
+    '''
     pos = int(pos)
     if is_home:
         return state['lineups']['away_field_pos'][pos]
@@ -69,25 +81,55 @@ def get_field_id(is_home, pos, state):
         return state['lineups']['home_field_pos'][pos]
 
 def get_batter_lineup(batter, state):
+    '''
+    given a batter return his lineup position
+    '''
     return state['lineups']['players'][batter][0]
 
 def get_batter_field(batter, state):
+    '''
+    given a batter return his field position
+    '''
     return state['lineups']['players'][batter][1]
 
 def add_error(error_player, play, state):
+    '''
+    add an error to the current plays state
+    @param error_player - player commiting error
+    @param play - the play to be loaded into the table
+    @param state - the state of the game
+    '''
     play['num_errors'] += 1
     play[error_dict[play['num_errors']]] = get_field_id(play['is_home'], error_player, state)
 
 def add_po(po_player, play, state):
+    '''
+    add a putout to the current plays state
+    @param po_player - player making put out
+    @param play - the play to be loaded into the table
+    @param state - the state of the game
+    '''
     state['po'] += 1
     play[po_dict[state['po']]] = get_field_id(play['is_home'], po_player, state)
 
 def add_ast(ast_player, play, state):
+    '''
+    add an assist to the current plays state
+    @param est_player - player making assist
+    @param play - the play to be loaded into the table
+    @param state - the state of the game
+    '''
     state['ast'] += 1
     play[ast_dict[state['ast']]] = get_field_id(play['is_home'], ast_player, state)
 
 
 def score_run(move, play, state):
+    '''
+    score a run for the appropriate team and handle all required upkeep
+    @param move - the specific runner move which scored the run
+    @param play - the play to be loaded into the table
+    @param state - the game state
+    '''
     info_index = 0
     no_rbi = False
     modifiers = copy.copy(move)
@@ -120,6 +162,12 @@ def score_run(move, play, state):
         play['rbi'] += 1
 
 def stolen_bases(sbs, play, state):
+    '''
+    handler for stolen bases
+    @param sbs - a list of stolen bases
+    @param play - the play to be loaded into the table
+    @param state - the game state
+    '''
     not_moved = set([1, 2, 3])
 
     for sb in sbs:
@@ -549,6 +597,13 @@ def build_lineups(starts):
     return lineups
 
 def transform_plays(plays, subs, rows, state):
+    '''
+    wrapper around all other methods to collate all play data into the game
+    @param plays - a list of plays for this game
+    @param subs - a list of substitutions for this game
+    @param rows - the rows of the table which will be loaded
+    @param state - the game state
+    '''
     # print('transforming')
     print(state['game_id'])
     pa_id = 0
@@ -628,6 +683,11 @@ def transform_plays(plays, subs, rows, state):
 
 
 def transform_game(game, roster):
+    '''
+    given a list of games and a roster build the tables to be loaded into the database
+    @param game - a list of games to be transformed
+    @param roster - rosters for all relevant players
+    '''
     rows = {table: [] for table in ['plate_appearance', 'game']}
     lineups = build_lineups(game['lineup'])
     context = {

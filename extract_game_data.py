@@ -104,8 +104,7 @@ def get_game_data():
             player_dict['SLG'] = player_dict['TB']/player_dict['AB']
             player_dict['OPS'] = player_dict['OBP'] + player_dict['SLG']
         player_dict['BF'] = pa_data_df[pitcher_team_bool & pa_data_df.pa_flag].pa_flag.count()
-        player_dict['IP'] = pa_data_df[pitcher_team_bool & ((pa_data_df.event_type == 2) | (pa_data_df.event_type == 3) | 
-            (pa_data_df.event_type == 6) | (pa_data_df.event_type == 8))].pitcher_id.count()/3
+        player_dict['IP'] = pa_data_df[pitcher_team_bool].outs_on_play.sum()/3
         player_dict['Ha'] = pa_data_df[pitcher_team_bool & (pa_data_df.hit_val>0)].hit_val.count()
         player_dict['HRa'] = pa_data_df[pitcher_team_bool & (pa_data_df.hit_val == 4)].hit_val.count()
         player_dict['TBa'] = pa_data_df[pitcher_team_bool & (pa_data_df.hit_val>0)].hit_val.sum()
@@ -123,6 +122,7 @@ def get_game_data():
             player_dict['RA'] = (player_dict['Ra'] / player_dict['IP']) * 9
             player_dict['ERA'] = (player_dict['ERa'] / player_dict['IP']) * 9
         player_dict['player_id'] = player
+        player_dict['team'] = player
         # player_dict = {player: player_dict}
         player_dicts.append(player_dict)
         
