@@ -8,17 +8,6 @@ import copy
 #TODO: errors in runner movements are ignored
 #TODO: dropped third strikes are confused
 #TODO: advance error and then outfield assist wrong
-home_lineup = {}
-away_lineup = {}
-
-home_lineup_rev = {}
-away_lineup_rev = {}
-
-home_field_pos = {}
-away_field_pos = {}
-
-home_field_rev = {}
-away_field_rev = {}
 
 runner_dest = {'B' : 'batter_dest',
                '1' : 'first_dest',
@@ -54,6 +43,10 @@ runner_event = {
     '2': 'second_runner_event',
     '3': 'third_runner_event',
 }
+
+at_bat = set([2, 3, 18, 19, 20, 21, 22, 23])
+non_plate_app = set([4, 5, 6, 7, 8, 9, 10, 11, 12, 13])
+pinch_player = set([11, 12])
 
 def get_lineup_id(is_home, pos, state):
     '''
@@ -122,14 +115,10 @@ def add_ast(ast_player, play, state):
     state['ast'] += 1
     play[ast_dict[state['ast']]] = get_field_id(play['is_home'], ast_player, state)
 
-def score_run(move, play, state):
+def run_modifiers(move, play):
     '''
-    score a run for the appropriate team and handle all required upkeep
-    @param move - the specific runner move which scored the run
-    @param play - the play to be loaded into the table
-    @param state - the game state
+    Handle all modifiers such as (NR) meaning no rbi attached to a run scored
     '''
-    info_index = 0
     no_rbi = False
     modifiers = copy.copy(move)
     info_index = modifiers.find('(')
@@ -151,6 +140,17 @@ def score_run(move, play, state):
         end_index = modifiers.find(')')
         fielding_info = modifiers[info_index + 1: end_index]
         modifiers = modifiers[end_index + 1:]
+    return no_rbi
+
+def score_run(move, play, state):
+    '''
+    score a run for the appropriate team and handle all required upkeep
+    @param move - the specific runner move which scored the run
+    @param play - the play to be loaded into the table
+    @param state - the game state
+    '''
+    info_index = 0
+    no_rbi = run_modifiers(move, play)
     state['runs_allowed'][state['responsible_pitchers'][move[0]]]+=1
     play['runs_on_play'] += 1
     if move[0] != 'B':
@@ -168,7 +168,6 @@ def stolen_bases(sbs, play, state):
     @param state - the game state
     '''
     not_moved = set([1, 2, 3])
-
     for sb in sbs:
         base = sb[2]
         if base != 'H':
@@ -182,8 +181,54 @@ def stolen_bases(sbs, play, state):
     for not_move in not_moved:
         if state['runners_before'][not_move] != '':
             play[runner_dest[str(not_move)]] = str(not_move)
-    
+
+def handle_runner_not_thrown_out(move, play, state):
+    '''
+    handles the case during the handling of runner movement that the runner
+    has NOT been marked as being thrown out including handling all errors and
+    marking the players destination
+    @param move - the runner's move
+    @param play - the data to be loaded into the table
+    @param state - the game state
+    '''
+    start_idx = move.find('(')
+    end_idx = move.find(')')
+    if start_idx != -1:
+        fielding_info = move[start_idx+ 1: end_idx]
+        fielding_info = fielding_info.split('/')
+        for field in fielding_info:
+            if field not in set(['TH', 'NR', 'UR', 'TUR', 'WP', 'PB']):
+                event_description(field, play, state, True)
+    if move[2] == 'H':
+        score_run(move, play, state)
+    play[runner_dest[move[0]]] = move[2]
+
+def handle_runner_thrown_out(move, play, state, outs_this_play):
+    '''
+    handles the case during the handling of runner movement that the runner
+    HAS been marked as being thrown out including handling all errors and
+    marking the players destination
+    @param move - the runner's move
+    @param play - the data to be loaded into the table
+    @param state - the game state
+    '''
+    fielding_info = move[move.find('(')+ 1: move.find(')')]
+    outs_this_play += event_description(fielding_info, play, state, True)[1]
+    if outs_this_play > 0:
+        play[runner_dest[move[0]]] = 'O'
+    else:
+        play[runner_dest[move[0]]] = move[2]
+        if move[2] == 'H':
+            score_run(move, play, state)    
+
 def runner_moves(moves, play, runners_out, state):
+    '''
+    handle all explicit movements for the play
+    @param moves - list of runner moves
+    @param play - the play which is added to the row of the table
+    @param runners_out - list of runners who have already been marked out
+    @param state - the game state
+    '''
     # global runners_dest
     
     not_moved = set([1, 2, 3])
@@ -204,30 +249,12 @@ def runner_moves(moves, play, runners_out, state):
 
             #Runner not thrown out    
             if move[1] != 'X':
-                start_idx = move.find('(')
-                end_idx = move.find(')')
-                if start_idx != -1:
-                    fielding_info = move[start_idx+ 1: end_idx]
-                    fielding_info = fielding_info.split('/')
-                    for field in fielding_info:
-                        if field not in set(['TH', 'NR', 'UR', 'TUR', 'WP', 'PB']):
-                            event_description(field, play, state, True)
-                if move[2] == 'H':
-                    score_run(move, play, state)
-                play[runner_dest[move[0]]] = move[2]
+                handle_runner_not_thrown_out(move, play, state)
             
             #Runner thrown out
             else:
-                fielding_info = move[move.find('(')+ 1: move.find(')')]
-                outs_this_play += event_description(fielding_info, play, state, True)[1]
-                if outs_this_play > 0:
-                    play[runner_dest[move[0]]] = 'O'
-                else:
-                    play[runner_dest[move[0]]] = move[2]
-                    if move[2] == 'H':
-                        score_run(move, play, state)
-            
-    
+                handle_runner_thrown_out(move, play, state, outs_this_play)
+
     for not_move in not_moved:
         if not_move not in runners_out:
             if state['runners_before'][not_move] != '' and play[runner_dest[str(not_move)]]== '':
@@ -237,6 +264,63 @@ def runner_moves(moves, play, runners_out, state):
     
     return outs_this_play
 
+def parse_out(item, play, state, runners_out):
+    i = 0
+    po_ers = []
+    last_fielder = item[i]
+    outs_this_play = 0
+    po_err = {
+        1: False,
+        2: False,
+        3: False,
+    }
+    po = {
+        1: [],
+        2: [],
+        3: []
+    }
+
+    while len(item) > i:
+        if item[i].isdigit():
+            po[outs_this_play + 1].append(item[i])
+            if(i == 0):
+                play['hit_loc'] = int(item[i])
+        elif item[i] == '(':
+            if item[i + 1] != 'B':
+                runners_out.append(int(item[i + 1]))
+                play[runner_dest[item[i + 1]]] = 'O'
+                outs_this_play += 1
+                if len(item) > i + 3:
+                    po[outs_this_play + 1].append(item[i - 1])
+            else:
+                outs_this_play += 1
+                if len(item) > i + 3:
+                    po[outs_this_play + 1].append(item[i - 1])
+                play['batter_dest'] = 'O'
+            i += 2
+        elif item[i] == 'E':
+            po_err[outs_this_play + 1] = True
+        i+=1
+    
+    pos = po.items()
+    
+    for out, fielders in pos:
+        field = 0
+        for fielder in fielders:
+            if field == (len(fielders) - 1):
+                if not po_err[out]:
+                    add_po(fielder, play, state)
+                    event_type = 2
+                else:
+                    add_error(fielder, play, state)
+                    outs_this_play -= 1
+                    if play['batter_dest'] == 'O':
+                        play['batter_dest'] = '1'
+                    event_type = 18
+            else:
+                add_ast(fielder, play, state)
+            field+=1
+    return outs_this_play
 
 def event_description(item, play, state, second_event):
     '''
@@ -250,63 +334,7 @@ def event_description(item, play, state, second_event):
     runners_out = []
 
     if item[0].isdigit():
-        i = 0
-        po_ers = []
-        last_fielder = item[i]
-        outs_this_play = 0
-        po_err = {
-            1: False,
-            2: False,
-            3: False,
-        }
-        po = {
-            1: [],
-            2: [],
-            3: []
-        }
-
-        while len(item) > i:
-            if item[i].isdigit():
-                po[outs_this_play + 1].append(item[i])
-                if(i == 0):
-                    play['hit_loc'] = int(item[i])
-            elif item[i] == '(':
-                if item[i + 1] != 'B':
-                    runners_out.append(int(item[i + 1]))
-                    play[runner_dest[item[i + 1]]] = 'O'
-                    outs_this_play += 1
-                    if len(item) > i + 3:
-                        po[outs_this_play + 1].append(item[i - 1])
-                else:
-                    outs_this_play += 1
-                    if len(item) > i + 3:
-                        po[outs_this_play + 1].append(item[i - 1])
-                    play['batter_dest'] = 'O'
-                i += 2
-            elif item[i] == 'E':
-                po_err[outs_this_play + 1] = True
-            i+=1
-        
-        pos = po.items()
-        
-        for out, fielders in pos:
-            field = 0
-            for fielder in fielders:
-                if field == (len(fielders) - 1):
-                    if not po_err[out]:
-                        add_po(fielder, play, state)
-                        event_type = 2
-                    else:
-                        add_error(fielder, play, state)
-                        outs_this_play -= 1
-                        if play['batter_dest'] == 'O':
-                            play['batter_dest'] = '1'
-                        event_type = 18
-                else:
-                    add_ast(fielder, play, state)
-                field+=1
-        
-        
+        outs_this_play = parse_out(item, play, state)
     
     if re.match('^SB[23H]', item):
         sbs = item.split(';')
@@ -526,9 +554,6 @@ def expand_play(play, state):
 
     # split modifiers
     play_arr = moves[0].split('/')
-
-    outs_this_play = 0
-    outs_this_play_rm = 0
     i = 0
 
     # iterate through elements in the modifier array
@@ -569,7 +594,6 @@ def build_lineups(starts):
     use starts to build the starting lineups and starting field positions 
     @param starts - list of dictionaries containing the starting lineups
     '''
-    global away_lineup_rev, home_lineup_rev, away_field_rev, home_field_rev
 
     lineups = {'home_lineup': {},
                'home_field_pos': {},
@@ -648,12 +672,9 @@ def transform_plays(plays, subs, rows, state):
             play['num_errors'] = 0
             play['fielder_id'] = ''
             play['field_pos'] = get_batter_field(play['batter_id'], state)
-            if (play['field_pos'] not in set([11, 12])):
+            if (play['field_pos'] not in pinch_player):
                 play['lineup_pos'] = get_batter_lineup(play['batter_id'], state)
             play['pitcher_id'] = get_field_id(play['is_home'], 1, state)
-            pitchers = set([])
-            for pitcher in state['responsible_pitchers'].values():
-                pitchers.add(pitcher)
             state['responsible_pitchers']['B'] = play['pitcher_id']
             play['pitcher_hand'] = state['roster'][play['pitcher_id']]['throws']
             play['batter_hand'] = state['roster'][play['batter_id']]['bats']
@@ -663,15 +684,11 @@ def transform_plays(plays, subs, rows, state):
                 else:
                     play['batter_hand'] = 'L'
             expand_play(play, state)
-            play['ab_flag'] = ((play['event_type'] in set([2, 3, 18, 19, 20, 21, 22, 23])) and (play['sac_fly'] == False) and (play['sac_bunt'] == False))
-            play['pa_flag'] = play['event_type'] not in set([4, 5, 6, 7, 8, 9, 10, 11, 12, 13])
+            play['ab_flag'] = ((play['event_type'] in at_bat) and (play['sac_fly'] == False) and (play['sac_bunt'] == False))
+            play['pa_flag'] = play['event_type'] not in non_plate_app
             p_a = PlateAppearance(context=state).dump(play)
             rows['plate_appearance'].append(p_a)
             state['inning'] = play['inning']
-            if state['game_id']['game_id'] == 'SLN201908311':
-                print(play['play'])
-                print(state['responsible_pitchers'])
-                print(state['runners_before'])
             pa_id += 1
         
         play_idx+=1
