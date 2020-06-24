@@ -2,8 +2,9 @@
 from models.sqla_utils import BASE, get_session
 from models.plate_appearance import PlateAppearance
 from models.game import Game
+from models.run import Run
 from sqlalchemy import MetaData
-MODELS = [PlateAppearance, Game]
+MODELS = [PlateAppearance, Game, Run]
 
 
 def create_tables():

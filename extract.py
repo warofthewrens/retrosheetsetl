@@ -1,5 +1,11 @@
 import pandas as pd
 import math
+import requests
+import os
+import shutil
+import zipfile
+import tempfile
+import io
 from raw_schemas.id import GameId
 from raw_schemas.info import Info
 from raw_schemas.start import Start
@@ -8,20 +14,40 @@ from raw_schemas.data import Data
 from raw_schemas.game import Game
 import numpy as np
 
-def extract_roster(team_id):
+def extract_game_data_by_year(year):
+    game_data_url = 'https://www.retrosheet.org/events/' + year + 'eve.zip'
+    data_req = requests.get(game_data_url)
+    data_td = tempfile.mkdtemp()
+    data_zip = zipfile.ZipFile(io.BytesIO(data_req.content))
+    data_zip.extractall(data_td)
+    return data_zip, data_td
+
+def extract_rosters():
+    roster_url = 'https://www.retrosheet.org/Rosters.zip'
+    roster_r = requests.get(roster_url)
+    roster_td = tempfile.mkdtemp()
+    roster_zip = zipfile.ZipFile(io.BytesIO(roster_r.content))
+    roster_zip.extractall(roster_td)
+    return roster_zip, roster_td
+
+
+
+def extract_roster(team_id, data_zip):
     '''
     extracts roster from team 'team_id' with the index set to the player_id
     @ param - team_id in the form YYYY + 3 letter team code
     @ return - roster dictionary from player_ids to roster info
     '''
+    
     file_name = team_id[4:] + team_id[0:4] + '.ROS'
-    df = pd.read_table('C:\\Users\warre\\Documents\\retrosheetetl\\game_files\\' + file_name, sep = ',', 
+    df = pd.read_table(data_zip.open(file_name), sep = ',', 
                         error_bad_lines=False, names=['player_id', 'player_last_name', 'player_first_name', 'bats', 'throws', 'team', 'pos'])
     df = df.set_index('player_id')
     roster = df.to_dict('index')
+    roster = {team_id[4:]: roster}
     return roster
 
-def extract_roster_team(team_id):
+def extract_roster_team(team_id, data_zip):
     '''
     extracts roster from team 'team_id' with the index set to the player_id
     @ param - team_id in the form YYYY + 3 letter team code
@@ -29,14 +55,14 @@ def extract_roster_team(team_id):
     different from extract_roster in that the dict key includes the team_name
     '''
     file_name = team_id[4:] + team_id[0:4] + '.ROS'
-    df = pd.read_table('C:\\Users\warre\\Documents\\retrosheetetl\\game_files\\' + file_name, sep = ',', 
+    df = pd.read_table(data_zip.open(file_name), sep = ',', 
                         error_bad_lines=False, names=['player_id', 'player_last_name', 'player_first_name', 'bats', 'throws', 'team', 'pos'])
     df = df.set_index(['player_id', 'team'])
     roster = df.to_dict('index')
     return roster
 
 
-def extract_team(team_id, league):
+def extract_team(team_id, league, data_zip):
     '''
     extract all home games from team team_id and load all data into a Game marshmallow schema
     @param team_id - team_id in the form YYYY + 3 letter team code
@@ -44,7 +70,7 @@ def extract_team(team_id, league):
     @return games - list of loaded raw_schema.Games 
     '''
     file_name = team_id + '.EV' + league
-    df = pd.read_table('C:\\Users\warre\\Documents\\retrosheetetl\\game_files\\' + file_name, sep = ',', 
+    df = pd.read_table(data_zip.open(file_name), sep = ',', 
                         error_bad_lines=False, header=None, names=list(range(7)), converters={4: lambda x: str(x)})
     
     first_game = True
@@ -144,3 +170,6 @@ def handle_data(row, data):
     data.append(datum)
 
 # extract_team('sl', 's')
+# roster_zip, roster_td = extract_rosters()
+# print(pd.read_table(roster_zip.open('PHI2019.ROS'),  sep = ',', error_bad_lines=False, names=['player_id', 'player_last_name', 'player_first_name', 'bats', 'throws', 'team', 'pos']))
+# shutil.rmtree(roster_td)

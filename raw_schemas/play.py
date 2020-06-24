@@ -50,19 +50,29 @@ def runner_moves(play):
         info_index = move.find('(')
         end_index = move.find(')')
         fielding_info = move[info_index + 1: end_index]
-        new_move = move[end_index + 1:]
+        cur_info = info_index
+        cur_end = end_index + 1
     # if it's an error or an out include the player getting thrown out/moving on an error
         while info_index != -1:
             
+            new_move = move[cur_end:]
             placement = fielding_info.find('/')
             if placement == -1:
                 placement = end_index
             if (fielding_info[0].isdigit() or fielding_info[0] == 'E'):
-                move = move[0:info_index] + '(' + fielding_info[0:placement] + '(' + runner + ')' + fielding_info[placement:] + move[end_index:]
+                # print(moves[i][0:cur_index])
+                if len(move) > cur_end + 1:
+                    move = move[0:cur_info] + '(' + fielding_info[0:placement] + '(' + runner + ')' + fielding_info[placement:] + ')'  + '(' + move[cur_end + 1:]
+                else:
+                    move = move[0:cur_info] + '(' + fielding_info[0:placement] + '(' + runner + ')' + fielding_info[placement:] + ')' + move[cur_end + 1:]
+            # new_move = new_move[3:]
+            # print('new_move', new_move)
+            
             info_index = new_move.find('(')
             end_index = new_move.find(')')
+            cur_info = cur_end + 3 + info_index
+            cur_end += end_index + 4
             fielding_info = new_move[info_index + 1: end_index]
-            new_move = new_move[end_index + 1:]
         moves[i] = move
         i+=1
     play[1] = ';'.join(moves)
