@@ -35,13 +35,18 @@ class TestExtract(unittest.TestCase):
         result = Play().load(play)
         self.assertEqual(result, {'play':'K/DP.1X2(26(1))'})
 
-        play = {'play':'S7/L7LD.3-H;2-H;BX2(7E4)'}
+        play = {'play':'S7/L7LD.3-H;2-H;BXH(7E4)(NR)(TUR)'}
         result = Play().load(play)
-        self.assertEqual(result, {'play':'S7/L7LD.3-H;2-H;BX2(7E4(B))'})
+        self.assertEqual(result, {'play':'S7/L7LD.3-H;2-H;BXH(7E4(B))(NR)(TUR)'})
 
         play = {'play':'S5/G5.1-3(E5/TH)'}
         result = Play().load(play)
         self.assertEqual(result, {'play':'S5/G5.1-3(E5(1)/TH)'})
+    
+    def test_missing_runner(self):
+        play = {'play':'46(1)/FO/G.3-H;2-H(E6/TH)(E6/TH)(NR)'}
+        result = Play().load(play)
+        self.assertEqual(result, {'play':'46(1)/FO/G.3-H;2-H(E6(2)/TH)(E6(2)/TH)(NR)'})
 
 if __name__ == '__main__':
     unittest.main()
