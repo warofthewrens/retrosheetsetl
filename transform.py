@@ -281,7 +281,7 @@ def transform_game(game, roster):
         'lineup': game['lineup'],
         'data': game['data'],
         'info': game['info'],
-        'game_id': game['game_id']['game_id']
+        'game_id': game['game_id']
     }
     new_game = Game(context=state).dump(game)
     rows['game'].append(new_game)

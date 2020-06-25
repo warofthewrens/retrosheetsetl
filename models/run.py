@@ -6,6 +6,8 @@ class Run(BASE):
     __tablename__ = 'Run'
 
     run_id = Column(INTEGER(12), primary_key=True)
+    game_id = Column(VARCHAR(12))
+    date = Column(DATE)
     scoring_team = Column(VARCHAR(3))
     conceding_team = Column(VARCHAR(3))
     scoring_player = Column(VARCHAR(8))

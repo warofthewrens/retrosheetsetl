@@ -1,6 +1,7 @@
 #from parser_helper import parse_out, stolen_bases, get_field_id, add_po, add_ast, add_error, score_run, runner_dest, prev_base
 import re
 from parsed_schemas.run import Run
+from parsed_schemas.base_running_event import BaseRunningEvent
 import copy
 #from play_parser import play_parser
 
@@ -54,9 +55,9 @@ def get_lineup_id(is_home, pos, state):
 
 def get_field_id(is_home, pos, state):
     '''
-    returns the player id for position, pos in lineup of appropriate team
+    returns the player id for position, pos in field of appropriate team
     @param is_home - boolean for if batter is_home
-    @param pos - lineup position to lookup
+    @param pos - field position to lookup
     @param state - game state which includes current field positions
     '''
     pos = int(pos)
@@ -107,6 +108,24 @@ def add_ast(ast_player, play, state):
     state['ast'] += 1
     play[ast_dict[state['ast']]] = get_field_id(play['is_home'], ast_player, state)
 
+def add_base_running_event(base, play, state, rows, event):
+    if event == 'P':
+        runner = state['runners_before'][int(base)]
+    else:
+        runner = state['runners_before'][int(prev_base[base])]
+    if play['is_home']:
+        new_br_event = {'game_id': state['game_id'], 'date': state['date'], 'running_team': state['home_team'], 
+                        'pitching_team': state['away_team'],'event': event, 'base': base, 'runner': runner,
+                        'pitcher': play['pitcher_id'], 'catcher': get_field_id(play['is_home'], 2, state), 'inning':state['inning'],
+                        'outs': state['outs']}
+    else:
+        new_br_event = {'game_id': state['game_id'], 'date': state['date'], 'running_team': state['away_team'], 
+                        'pitching_team': state['home_team'],'event': event, 'base': base, 'runner': runner,
+                        'pitcher': play['pitcher_id'], 'catcher': get_field_id(play['is_home'], 2, state), 'inning':state['inning'],
+                        'outs': state['outs']}
+    br_event = BaseRunningEvent().dump(new_br_event)
+    rows['base_running_event'].append(br_event)
+
 def run_modifiers(move, play, state, rows):
     '''
     Handle all modifiers such as (NR) meaning no rbi attached to a run scored
@@ -146,14 +165,14 @@ def run_modifiers(move, play, state, rows):
     else:
         scorer = state['runners_before'][int(move[0])]
     if play['is_home']:
-        new_run = {'scoring_team': state['home_team'], 'conceding_team': state['away_team'],
+        new_run = {'game_id': state['game_id'], 'date': state['date'], 'scoring_team': state['home_team'], 'conceding_team': state['away_team'],
                     'scoring_player': scorer, 'responsible_pitcher': state['responsible_pitchers'][move[0]],
                     'batter': play['batter_id'], 'is_earned': er, 'is_team_earned': ter, 'is_rbi': not no_rbi, 'inning': play['inning'], 'outs': state['outs']}
     else:
-        new_run = {'scoring_team': state['away_team'], 'conceding_team': state['home_team'],
+        new_run = {'game_id': state['game_id'], 'date': state['date'], 'scoring_team': state['away_team'], 'conceding_team': state['home_team'],
                     'scoring_player': scorer, 'responsible_pitcher': state['responsible_pitchers'][move[0]],
                     'batter': play['batter_id'], 'is_earned': er, 'is_team_earned': ter, 'is_rbi': not no_rbi, 'inning': play['inning'], 'outs': state['outs']}
-    run = Run().load(new_run)
+    run = Run().dump(new_run)
     rows['run'].append(run)
     return no_rbi
 
@@ -193,6 +212,7 @@ def stolen_bases(sbs, play, state, rows):
             play['third_dest'] = 'H'
         not_moved.remove(int(prev_base[base]))
         play[runner_event[prev_base[base]]] = 'S'
+        add_base_running_event(base, play, state, rows, 'S')
     for not_move in not_moved:
         if state['runners_before'][not_move] != '':
             play[runner_dest[str(not_move)]] = str(not_move)
@@ -442,9 +462,11 @@ def play_parser(item, play, state, second_event, rows):
             if item[2] == 'C':
                 runners_out.append(int(prev_base[item[4]]))
                 play[runner_event[prev_base[item[4]]]] = 'P'
+                add_base_running_event(prev_base[item[4]], play, state, rows, 'P')
             else:
                 runners_out.append(int(item[2]))
                 play[runner_event[item[2]]] = 'P'
+                add_base_running_event(item[2], play, state, rows, 'P')
             outs_this_play += 1
             add_po(fielding_info[1], play, state)
             add_ast(fielding_info[0], play, state)
@@ -484,6 +506,7 @@ def play_parser(item, play, state, second_event, rows):
             runners_out.append(int(prev_base[item[2]]))
             play[runner_dest[prev_base[item[2]]]] = 'O'
             play[runner_event[prev_base[item[2]]]] = 'C'
+            add_base_running_event(item[2], play, state, rows, 'C')
             i = 0
             for c in fielding_info:
                 if i == len(fielding_info) - 1:

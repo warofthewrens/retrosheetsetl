@@ -92,7 +92,7 @@ class PlateAppearance(Schema):
 
     @pre_dump
     def expand_play_str(self, data, **kwargs):
-        data['game_id'] = self.context['game_id']['game_id']
+        data['game_id'] = self.context['game_id']
         data['date'] = self.context['date']
         data['outs'] = self.context['outs']
         data['home_runs'] = self.context['home_runs']

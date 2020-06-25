@@ -60,12 +60,13 @@ def main():
     
     # games.extend(extract_team('2019SLN', 'N'), data_zip)
     get_rosters(year, data_zip)
-    results = {'PlateAppearance': [], 'Game': [], 'Run': []}
+    results = {'PlateAppearance': [], 'Game': [], 'Run': [], 'BaseRunningEvent': []}
     for game in games:
         parsed_data = transform_game(game, rosters)
         results['PlateAppearance'].extend(parsed_data['plate_appearance'])
         results['Game'].extend(parsed_data['game'])
         results['Run'].extend(parsed_data['run'])
+        results['BaseRunningEvent'].extend(parsed_data['base_running_event'])
     create_tables()
     load_data(results)
     shutil.rmtree(data_td)
