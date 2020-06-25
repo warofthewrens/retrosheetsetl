@@ -23,6 +23,14 @@ def get_game_data():
         'game',
         con=ENGINE
     )
+    run_data_df = pd.read_sql_table(
+        'run',
+        con=ENGINE
+    )
+    br_data_df = pd.read_sql_table(
+        'base_running_event',
+        con=ENGINE
+    )
     rosters = get_roster_team()
     players = rosters.keys()
     player_dicts = []

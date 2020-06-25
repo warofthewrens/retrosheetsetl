@@ -43,6 +43,7 @@ def runner_moves(play):
     moves = play[1].split(';')
     i = 0
     for move in moves:
+        move = move.replace('/TH', '')
         move_action = move.find('X')
         if move_action == -1:
             move_action = move.find('-')
@@ -54,25 +55,40 @@ def runner_moves(play):
         cur_end = end_index + 1
     # if it's an error or an out include the player getting thrown out/moving on an error
         while info_index != -1:
-            
+            mutated = False
             new_move = move[cur_end:]
             placement = fielding_info.find('/')
+            
             if placement == -1:
                 placement = end_index
-            if (fielding_info[0].isdigit() or fielding_info[0] == 'E'):
-                # print(moves[i][0:cur_index])
-                if len(move) > cur_end + 1:
-                    move = move[0:cur_info] + '(' + fielding_info[0:placement] + '(' + runner + ')' + fielding_info[placement:] + ')'  + '(' + move[cur_end + 1:]
-                else:
-                    move = move[0:cur_info] + '(' + fielding_info[0:placement] + '(' + runner + ')' + fielding_info[placement:] + ')' + move[cur_end + 1:]
+            if len(fielding_info) > 0:
+                if (fielding_info[0].isdigit() or fielding_info[0] == 'E'):
+                    # print(moves[i][0:cur_index])
+                    mutated = True
+                    if len(move) > cur_end + 1:
+                        move = move[0:cur_info] + '(' + fielding_info[0:placement] + '(' + runner + ')' + fielding_info[placement:] + ')'  + '(' + move[cur_end + 1:]
+                    else:
+                        move = move[0:cur_info] + '(' + fielding_info[0:placement] + '(' + runner + ')' + fielding_info[placement:] + ')' + move[cur_end + 1:]
             # new_move = new_move[3:]
             # print('new_move', new_move)
             
             info_index = new_move.find('(')
             end_index = new_move.find(')')
-            cur_info = cur_end + 3 + info_index
-            cur_end += end_index + 4
+            if mutated:
+                cur_info = cur_end + 3 + info_index
+                cur_end += end_index + 4
+            else:
+                cur_info = cur_end + info_index
+                cur_end += end_index
             fielding_info = new_move[info_index + 1: end_index]
+            j = 1
+            while fielding_info == '' and end_index != -1:
+                end_index = new_move[j:].find(')')
+                fielding_info = new_move[info_index + 1: end_index]
+                new_move = new_move[0] + new_move[2:]
+                j += 1
+            cur_end+=(j - 1)
+        move = move.replace('((', '(')
         moves[i] = move
         i+=1
     play[1] = ';'.join(moves)

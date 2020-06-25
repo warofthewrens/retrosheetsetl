@@ -101,7 +101,7 @@ def extract_team(team_id, league, data_zip):
                 info_dict = {}
                 
             first_game = False
-            game_id = {'game_id': row[2]}
+            game_id = row[2]
         
         elif row[1] == 'version':
             continue

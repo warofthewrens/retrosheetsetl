@@ -39,14 +39,19 @@ class TestExtract(unittest.TestCase):
         result = Play().load(play)
         self.assertEqual(result, {'play':'S7/L7LD.3-H;2-H;BXH(7E4(B))(NR)(TUR)'})
 
-        play = {'play':'S5/G5.1-3(E5/TH)'}
+        play = {'play':'S5/G5.1-3(TH)(E5/TH)(UR)'}
         result = Play().load(play)
-        self.assertEqual(result, {'play':'S5/G5.1-3(E5(1)/TH)'})
+        self.assertEqual(result, {'play':'S5/G5.1-3(TH)(E5(1))(UR)'})
     
     def test_missing_runner(self):
-        play = {'play':'46(1)/FO/G.3-H;2-H(E6/TH)(E6/TH)(NR)'}
+        play = {'play':'46(1)/FO/G.3-H;2-H(E6)(E6/TH)(NR)'}
         result = Play().load(play)
-        self.assertEqual(result, {'play':'46(1)/FO/G.3-H;2-H(E6(2)/TH)(E6(2)/TH)(NR)'})
+        self.assertEqual(result, {'play':'46(1)/FO/G.3-H;2-H(E6(2))(E6(2))(NR)'})
+    
+    def test_lots_of_parens(self):
+        play = {'play': 'D7/L+.1-H;B-H(TH)(E2/TH)(UR)(NR)'}
+        result = Play().load(play)
+        self.assertEqual(result, {'play': 'D7/L+.1-H;B-H(TH)(E2(B))(UR)(NR)'})
 
 if __name__ == '__main__':
     unittest.main()
