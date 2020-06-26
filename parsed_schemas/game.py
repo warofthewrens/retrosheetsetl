@@ -15,6 +15,7 @@ pos_dict = {
 
 class Game(Schema):
     game_id = fields.String()
+    year = fields.Integer()
     date = fields.DateTime()
     away_team = fields.String()
     away_team_runs = fields.Integer()
@@ -177,3 +178,8 @@ class Game(Schema):
         
         game['innings'] = self.context['inning']
         return game
+    
+    @pre_dump
+    def get_year(self, data, **kwargs):
+        data['year'] = data['date'].date.year
+        return data

@@ -1,7 +1,10 @@
 import pandas as pd
 import time
-from models.sqla_utils import ENGINE
+from models.sqla_utils import ENGINE, BASE, get_session
+from models.player import Player
 from extract import extract_roster_team
+
+MODELS = [Player]
 
 team_set = set(['ANA', 'ARI', 'ATL', 'BAL', 'BOS', 'CHA', 'CHN', 'CIN', 'CLE', 'COL', 'DET', 'HOU',
             'KCA', 'LAN', 'MIA', 'MIL', 'MIN', 'NYA', 'NYN', 'OAK', 'PHI', 'PIT', 'SEA',
@@ -85,22 +88,16 @@ def get_game_data():
                         game_data_df[player == game_data_df.relief_pitcher19].relief_pitcher19_er.sum()
         player_dict['PA'] = pa_data_df[batter_team_bool & (pa_data_df.pa_flag)].pa_flag.count()
         player_dict['AB'] = pa_data_df[batter_team_bool & (pa_data_df.ab_flag)].ab_flag.count()
-        player_dict['1B'] = pa_data_df[batter_team_bool & (pa_data_df.hit_val == 1)].hit_val.count()
-        player_dict['2B'] = pa_data_df[batter_team_bool & (pa_data_df.hit_val == 2)].hit_val.count()
-        player_dict['3B'] = pa_data_df[batter_team_bool & (pa_data_df.hit_val == 3)].hit_val.count()
+        player_dict['S'] = pa_data_df[batter_team_bool & (pa_data_df.hit_val == 1)].hit_val.count()
+        player_dict['D'] = pa_data_df[batter_team_bool & (pa_data_df.hit_val == 2)].hit_val.count()
+        player_dict['T'] = pa_data_df[batter_team_bool & (pa_data_df.hit_val == 3)].hit_val.count()
         player_dict['HR'] = pa_data_df[batter_team_bool & (pa_data_df.hit_val == 4)].hit_val.count()
         player_dict['TB'] = pa_data_df[batter_team_bool & (pa_data_df.hit_val > 0)].hit_val.sum()
         player_dict['H'] = player_dict['1B'] + player_dict['2B'] + player_dict['3B'] + player_dict['HR']
-        # player_dict['R'] = pa_data_df[(pa_data_df.first_runner_id == player & pa_data_df.batter_team == team & pa_data_df.first_runner_dest == 'H')
-        #                                 | pa_data_df.second_runner_id == player & pa_data_df.batter_team == team & pa_data_df.second_runner_dest == 'H'
-        #                                 | pa_data_df.third_runner_id == player & pa_data_df.batter_team == team & pa_data_df.third_runner_dest == 'H'].count()
+        player_dict['R'] = run_data_df[run_data_df.scoring_player == player].scoring_player.count()
         player_dict['RBI'] = pa_data_df[batter_team_bool & pa_data_df.rbi > 0].rbi.sum()
-        # player_dict['SB'] = pa_data_df[(pa_data_df.first_runner_id == player & pa_data_df.batter_team == team & pa_data_df.first_runner_event == 'S')
-        #                                 | pa_data_df.second_runner_id == player & pa_data_df.batter_team == team & pa_data_df.second_runner_event == 'S'
-        #                                 | pa_data_df.third_runner_id == player & pa_data_df.batter_team == team & pa_data_df.third_runner_event == 'S'].count()
-        # player_dict['CS'] = pa_data_df[(pa_data_df.first_runner_id == player & pa_data_df.batter_team == team & pa_data_df.first_runner_event == 'C')
-        #                                 | pa_data_df.second_runner_id == player & pa_data_df.batter_team == team & pa_data_df.second_runner_event == 'C'
-        #                                 | pa_data_df.third_runner_id == player & pa_data_df.batter_team == team & pa_data_df.third_runner_event == 'C'].count()
+        player_dict['SB'] = br_data_df[br_data_df.runner == player & br_data_df.event == 'S'].runner.count()
+        player_dict['CS'] = br_data_df[br_data_df.runner == player & br_data_df.event == 'C'].runner.count()
         player_dict['BB'] = pa_data_df[batter_team_bool & ((pa_data_df.event_type == 14) | (pa_data_df.event_type == 15))].pa_flag.count()
         player_dict['SO'] = pa_data_df[batter_team_bool & (pa_data_df.event_type == 3)].pa_flag.count()
         player_dict['HBP'] = pa_data_df[batter_team_bool & (pa_data_df.event_type == 16)].pa_flag.count()
@@ -111,6 +108,8 @@ def get_game_data():
             player_dict['OBP'] = (player_dict['H'] + player_dict['BB'] + player_dict['HBP']) / (player_dict['AB'] + player_dict['BB'] + player_dict['HBP'] + player_dict['SF'])
             player_dict['SLG'] = player_dict['TB']/player_dict['AB']
             player_dict['OPS'] = player_dict['OBP'] + player_dict['SLG']
+        else:
+            player_dict['AVG'], player_dict['OBP'], player_dict['SLG'], player_dict['OPS'] = 0
         player_dict['BF'] = pa_data_df[pitcher_team_bool & pa_data_df.pa_flag].pa_flag.count()
         player_dict['IP'] = pa_data_df[pitcher_team_bool].outs_on_play.sum()/3
         player_dict['Ha'] = pa_data_df[pitcher_team_bool & (pa_data_df.hit_val>0)].hit_val.count()
@@ -123,22 +122,42 @@ def get_game_data():
         player_dict['BK'] = pa_data_df[pitcher_team_bool & (pa_data_df.event_type == 11)].event_type.count()
         player_dict['W'] = game_data_df[(player == game_data_df.winning_pitcher) & (team == game_data_df.winning_team)].winning_team.count()
         player_dict['L'] = game_data_df[(player == game_data_df.losing_pitcher) & (team == game_data_df.losing_team)].losing_team.count()
-        player_dict['S'] = game_data_df[(player == game_data_df.save) & (team == game_data_df.winning_team)].winning_team.count()
-        player_dict['Ra'] = pitcher_runs
-        player_dict['ERa'] = pitcher_earned_runs
+        player_dict['SV'] = game_data_df[(player == game_data_df.save) & (team == game_data_df.winning_team)].winning_team.count()
+        player_dict['Ra'] = run_data_df[run_data_df.responsible_pitcher == player].responsible_pitcher.count()
+        player_dict['ERa'] = run_data_df[run_data_df.responsible_pitcher == player & run_data_df.is_earned].responsible_pitcher.count()
         if player_dict['IP'] > 0:
             player_dict['RA'] = (player_dict['Ra'] / player_dict['IP']) * 9
             player_dict['ERA'] = (player_dict['ERa'] / player_dict['IP']) * 9
+        else:
+            player_dict['RA'], player_dict['ERA'] = 0
         player_dict['player_id'] = player
         player_dict['team'] = player
         # player_dict = {player: player_dict}
         player_dicts.append(player_dict)
         
         i += 1
+    
     for player in player_dicts:
         if player['IP'] > 50:
             print(player)
+    return player_dicts
+
+def load(results):
+    BASE.metadata.create_all(tables=[x.__table__ for x in MODELS], checkfirst=True)
+    session = get_session()
+    for model in MODELS:
+        data = results[model.__tablename__]
+        i = 0
+        # Here is where we convert directly the dictionary output of our marshmallow schema into sqlalchemy
+        for row in data:
+            if i % 1000 == 0:
+                print('loading...', i)
+            i+=1
+            session.merge(model(**row))
 start = time.time()
-get_game_data()
+parsed_data = get_game_data()
+rows = {table: [] for table in ['player']}
+rows['player'].extend(parsed_data)
+load(rows)
 end = time.time()
 print('total time', end - start)
