@@ -21,6 +21,7 @@ class PlateAppearance(Schema):
     pa_id = fields.Integer()
     play = fields.String()
     game_id = fields.String()
+    year = fields.Integer()
     date = fields.DateTime(format='%Y/%m/%d')
     batter_id = fields.String()
     batter_team = fields.String()
@@ -119,6 +120,11 @@ class PlateAppearance(Schema):
     def count(self, data, **kwargs):
         data['balls'] = int(data['count'][0])
         data['strikes'] = int(data['count'][1])
+        return data
+    
+    @pre_dump
+    def get_year(self, data, **kwargs):
+        data['year'] = data['date'].date.year
         return data
     
     @post_dump

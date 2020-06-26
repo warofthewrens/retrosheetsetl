@@ -30,7 +30,6 @@ def main():
     except getopt.GetoptError as err:
         print(str(err))
         sys.exit(2)
-    print(opts, args)
 
     for o, a in opts:
         if o == '-y':

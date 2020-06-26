@@ -16,5 +16,6 @@ class Run(BASE):
     is_earned = Column(BOOLEAN(3))
     is_team_earned = Column(BOOLEAN(3))
     is_rbi = Column(BOOLEAN(3))
+    is_sp = Column(BOOLEAN(3))
     inning = Column(SMALLINT(3))
     outs = Column(TINYINT(1))

@@ -113,6 +113,7 @@ def add_base_running_event(base, play, state, rows, event):
         runner = state['runners_before'][int(base)]
     else:
         runner = state['runners_before'][int(prev_base[base])]
+    
     if play['is_home']:
         new_br_event = {'game_id': state['game_id'], 'date': state['date'], 'running_team': state['home_team'], 
                         'pitching_team': state['away_team'],'event': event, 'base': base, 'runner': runner,
@@ -164,13 +165,14 @@ def run_modifiers(move, play, state, rows):
         scorer = play['batter_id']
     else:
         scorer = state['runners_before'][int(move[0])]
+    
     if play['is_home']:
         new_run = {'game_id': state['game_id'], 'date': state['date'], 'scoring_team': state['home_team'], 'conceding_team': state['away_team'],
-                    'scoring_player': scorer, 'responsible_pitcher': state['responsible_pitchers'][move[0]],
+                    'scoring_player': scorer, 'responsible_pitcher': state['responsible_pitchers'][move[0]], 'sp_flag': state['lineups']['away_field_pos']['sp'] == play['pitcher_id'],
                     'batter': play['batter_id'], 'is_earned': er, 'is_team_earned': ter, 'is_rbi': not no_rbi, 'inning': play['inning'], 'outs': state['outs']}
     else:
         new_run = {'game_id': state['game_id'], 'date': state['date'], 'scoring_team': state['away_team'], 'conceding_team': state['home_team'],
-                    'scoring_player': scorer, 'responsible_pitcher': state['responsible_pitchers'][move[0]],
+                    'scoring_player': scorer, 'responsible_pitcher': state['responsible_pitchers'][move[0]], 'is_sp': state['lineups']['home_field_pos']['sp'] == play['pitcher_id'],
                     'batter': play['batter_id'], 'is_earned': er, 'is_team_earned': ter, 'is_rbi': not no_rbi, 'inning': play['inning'], 'outs': state['outs']}
     run = Run().dump(new_run)
     rows['run'].append(run)
