@@ -124,7 +124,7 @@ class PlateAppearance(Schema):
     
     @pre_dump
     def get_year(self, data, **kwargs):
-        data['year'] = data['date'].date.year
+        data['year'] = data['date'].year
         return data
     
     @post_dump

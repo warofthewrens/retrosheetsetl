@@ -198,6 +198,8 @@ def transform_plays(plays, subs, rows, state):
     state['runners_before'] = defaultdict(str)
     state['po'] = 0
     state['ast'] = 0
+    state['run_id'] = 0
+    state['br_event_id'] = 0
     state['responsible_pitchers'] = defaultdict(str)
     state['runs_allowed'] = defaultdict(int)
 

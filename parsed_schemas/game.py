@@ -177,9 +177,6 @@ class Game(Schema):
             game['losing_team'] = game['home_team']
         
         game['innings'] = self.context['inning']
+        game['year'] = game['date'].year
         return game
     
-    @pre_dump
-    def get_year(self, data, **kwargs):
-        data['year'] = data['date'].date.year
-        return data

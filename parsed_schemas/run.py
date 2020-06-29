@@ -1,6 +1,7 @@
 from marshmallow import Schema, fields, validate, pre_dump, post_dump
 
 class Run(Schema):
+    run_id = fields.Integer()
     game_id = fields.String()
     year = fields.Integer()
     date = fields.DateTime(format='%Y/%m/%d')
@@ -18,7 +19,7 @@ class Run(Schema):
 
     @pre_dump
     def get_year(self, data, **kwargs):
-        data['year'] = data['date'].date.year
+        data['year'] = data['date'].year
         return data
     
 
