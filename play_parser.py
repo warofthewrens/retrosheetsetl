@@ -105,7 +105,10 @@ def add_ast(ast_player, play, state):
     @param play - the play to be loaded into the table
     @param state - the state of the game
     '''
+    
     state['ast'] += 1
+    if (state['ast']) > 5:
+        return
     play[ast_dict[state['ast']]] = get_field_id(play['is_home'], ast_player, state)
 
 def add_base_running_event(base, play, state, rows, event):
@@ -124,6 +127,8 @@ def add_base_running_event(base, play, state, rows, event):
                         'pitching_team': state['home_team'],'event': event, 'base': base, 'runner': runner,
                         'pitcher': play['pitcher_id'], 'catcher': get_field_id(play['is_home'], 2, state), 'inning':state['inning'],
                         'outs': state['outs']}
+    new_br_event['event_id'] = state['br_event_id']
+    state['br_event_id'] += 1
     br_event = BaseRunningEvent().dump(new_br_event)
     rows['base_running_event'].append(br_event)
 
@@ -168,12 +173,14 @@ def run_modifiers(move, play, state, rows):
     
     if play['is_home']:
         new_run = {'game_id': state['game_id'], 'date': state['date'], 'scoring_team': state['home_team'], 'conceding_team': state['away_team'],
-                    'scoring_player': scorer, 'responsible_pitcher': state['responsible_pitchers'][move[0]], 'sp_flag': state['lineups']['away_field_pos']['sp'] == play['pitcher_id'],
+                    'scoring_player': scorer, 'responsible_pitcher': state['responsible_pitchers'][move[0]], 'is_sp': state['lineups']['away_field_pos']['sp'] == play['pitcher_id'],
                     'batter': play['batter_id'], 'is_earned': er, 'is_team_earned': ter, 'is_rbi': not no_rbi, 'inning': play['inning'], 'outs': state['outs']}
     else:
         new_run = {'game_id': state['game_id'], 'date': state['date'], 'scoring_team': state['away_team'], 'conceding_team': state['home_team'],
                     'scoring_player': scorer, 'responsible_pitcher': state['responsible_pitchers'][move[0]], 'is_sp': state['lineups']['home_field_pos']['sp'] == play['pitcher_id'],
                     'batter': play['batter_id'], 'is_earned': er, 'is_team_earned': ter, 'is_rbi': not no_rbi, 'inning': play['inning'], 'outs': state['outs']}
+    new_run['run_id'] = state['run_id']
+    state['run_id'] += 1
     run = Run().dump(new_run)
     rows['run'].append(run)
     return no_rbi
@@ -309,6 +316,7 @@ def parse_out(item, play, state, runners_out):
     po_ers = []
     last_fielder = item[i]
     outs_this_play = 0
+    event_type = 0
     po_err = {
         1: False,
         2: False,
@@ -360,7 +368,7 @@ def parse_out(item, play, state, runners_out):
             else:
                 add_ast(fielder, play, state)
             field+=1
-    return outs_this_play
+    return outs_this_play, event_type
 
 def play_parser(item, play, state, second_event, rows):
     '''
@@ -374,7 +382,7 @@ def play_parser(item, play, state, second_event, rows):
     runners_out = []
 
     if item[0].isdigit():
-        outs_this_play = parse_out(item, play, state, runners_out)
+        outs_this_play, event_type = parse_out(item, play, state, runners_out)
     
     if re.match('^SB[23H]', item):
         sbs = item.split(';')
@@ -470,8 +478,10 @@ def play_parser(item, play, state, second_event, rows):
                 play[runner_event[item[2]]] = 'P'
                 add_base_running_event(item[2], play, state, rows, 'P')
             outs_this_play += 1
-            add_po(fielding_info[1], play, state)
-            add_ast(fielding_info[0], play, state)
+            if len(fielding_info) > 1:
+                add_po(fielding_info[1], play, state)
+            if len(fielding_info) > 0:
+                add_ast(fielding_info[0], play, state)
         else:
             event_type = 7
             error_player = item[item.find('E') + 1]

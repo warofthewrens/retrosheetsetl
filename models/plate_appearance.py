@@ -6,6 +6,7 @@ class PlateAppearance(BASE):
     __tablename__ = 'PlateAppearance'
 
     game_id = Column(VARCHAR(12), primary_key=True, auto_increment=False)
+    year = Column(INTEGER(5), primary_key=True, auto_increment=False)
     date = Column(DATE)
     pa_id = Column(INTEGER(6), primary_key=True, auto_increment=True, default=0)
     batter_id = Column(VARCHAR(8))

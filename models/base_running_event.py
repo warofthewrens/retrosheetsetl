@@ -5,8 +5,9 @@ from models.sqla_utils import BASE
 class BaseRunningEvent(BASE):
     __tablename__ = 'BaseRunningEvent'
 
-    event_id = Column(INTEGER(12), primary_key=True)
-    game_id = Column(VARCHAR(12))
+    event_id = Column(INTEGER(12), primary_key=True, auto_increment=True, default=0)
+    game_id = Column(VARCHAR(12), primary_key=True)
+    year = Column(INTEGER(5))
     date = Column(DATE)
     running_team = Column(VARCHAR(3))
     pitching_team = Column(VARCHAR(3))

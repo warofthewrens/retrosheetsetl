@@ -2,6 +2,8 @@
 from extract import extract_team, extract_roster, extract_rosters, extract_game_data_by_year
 from transform import transform_game 
 from load import create_tables, load_data
+from extract_game_data import etl_player_data
+from os import walk
 import time
 import sys
 import getopt
@@ -22,8 +24,9 @@ rosters = {}
 def main():
     games = []
     year = '2019'
-    nl_teams = set([])
-    al_teams = set([])
+    teams = set([])
+    roster_files = set([])
+    game_files = set([])
     
     try:
         opts, args = getopt.getopt(sys.argv[1:], 'y:t:')
@@ -41,24 +44,39 @@ def main():
             if a not in team_set:
                 raise Exception('invalid_team')
             else:
-                if a in nl_team_set:
-                    nl_teams.add(a)
-                elif a in al_team_set:
-                    al_teams.add(a)
+                teams.add(a)
+    
     data_zip, data_td = extract_game_data_by_year(year)
-    print(year, nl_teams, al_teams)
-    if len(nl_teams) == 0 and len(al_teams) == 0:
-        nl_teams = nl_team_set
-        al_teams = al_team_set
-    for nl in nl_teams:
-        games.extend(extract_team(year + nl, 'N', data_zip))
     
-    for al in al_teams:
-        games.extend(extract_team(year + al, 'A', data_zip))
+    f = []
+    for (dirpath, dirnames, filenames) in walk(data_td):
+        f.extend(filenames)
+        break
+    print(f)
+    if len(teams) == 0:
+        for team_file in f:
+            if team_file[-4:] == '.ROS':
+                roster_files.add(team_file)
+            elif team_file[-4:] == '.EVN' or team_file[-4:] == '.EVA':
+                game_files.add(team_file)
+            else:
+                print(team_file)
+    else:
+        for team_file in f:
+            if team_file[-4:] == '.ROS':
+                roster_files.add(team_file)
+            if team_file[4:7] in teams:
+                game_files.add(team_file)
+    print(year, teams)
     
+    for team in game_files:
+        games.extend(extract_team(team, data_zip))
+    
+    for team in roster_files:
+        rosters.update(extract_roster(team, data_zip))
     
     # games.extend(extract_team('2019SLN', 'N'), data_zip)
-    get_rosters(year, data_zip)
+    # get_rosters(year, data_zip)
     results = {'PlateAppearance': [], 'Game': [], 'Run': [], 'BaseRunningEvent': []}
     for game in games:
         parsed_data = transform_game(game, rosters)
@@ -68,6 +86,7 @@ def main():
         results['BaseRunningEvent'].extend(parsed_data['base_running_event'])
     create_tables()
     load_data(results)
+    etl_player_data(year)
     shutil.rmtree(data_td)
 
 def get_rosters(year, data_zip):

@@ -42,8 +42,8 @@ class Player(BASE):
     W = Column(INTEGER(2))
     L = Column(INTEGER(2))
     SV = Column(INTEGER(2))
-    Ra = Column(INTEGER(3))
-    ERa = Column(INTEGER(3))
+    TR = Column(INTEGER(3))
+    ER = Column(INTEGER(3))
     RA = Column(FLOAT(4))
     ERA = Column(FLOAT(4))
 

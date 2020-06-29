@@ -6,6 +6,7 @@ class Game(BASE):
     __tablename__ = 'Game'
 
     game_id = Column(VARCHAR(12), primary_key=True, auto_increment=False)
+    year = Column(INTEGER(5))
     date = Column(DATE)
     home_team = Column(VARCHAR(3))
     home_team_runs = Column(SMALLINT(3))
