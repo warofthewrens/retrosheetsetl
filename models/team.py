@@ -2,13 +2,22 @@ from sqlalchemy import Column
 from sqlalchemy.dialects.mysql import MEDIUMINT, INTEGER, TINYINT, SMALLINT, VARCHAR, DATETIME, BOOLEAN, DATE, FLOAT
 from models.sqla_utils import BASE
 
-class Player(BASE):
-    __tablename__ = 'Player'
+class Team(BASE):
+    __tablename__ = 'team'
 
-    player_id = Column(VARCHAR(8), primary_key=True)
-    player_name = Column(VARCHAR(50))
     team = Column(VARCHAR(3), primary_key=True)
     year = Column(INTEGER(4), primary_key=True)
+    W = Column(INTEGER(3))
+    L = Column(INTEGER(3))
+    win_pct = Column(FLOAT(5))
+    homeW = Column(INTEGER(2))
+    homeL = Column(INTEGER(2))
+    awayW = Column(INTEGER(2))
+    awayL = Column(INTEGER(2))
+    RS = Column(INTEGER(4))
+    RA = Column(INTEGER(4))
+    DIFF = Column(INTEGER(4))
+    exp_win_pct = Column(FLOAT(5))
     PA = Column(INTEGER(4))
     AB = Column(INTEGER(4))
     S = Column(INTEGER(3))
@@ -40,11 +49,19 @@ class Player(BASE):
     K = Column(INTEGER(3))
     HBPa = Column(INTEGER(3))
     BK = Column(INTEGER(3))
-    W = Column(INTEGER(2))
-    L = Column(INTEGER(2))
     SV = Column(INTEGER(2))
     TR = Column(INTEGER(3))
     ER = Column(INTEGER(3))
-    RA = Column(FLOAT(4))
+    RAA = Column(FLOAT(4))
     ERA = Column(FLOAT(4))
+    SpIP = Column(FLOAT(5))
+    RpIP = Column(FLOAT(5))
+    SpER = Column(INTEGER(4))
+    RpER = Column(INTEGER(4))
+    SpTR = Column(INTEGER(4))
+    RpTR = Column(INTEGER(4))
+    SpERA = Column(FLOAT(5))
+    RpERA = Column(FLOAT(5))
+
+
 

@@ -4,6 +4,7 @@ from transform import transform_game
 from load import create_tables, load_data
 from extract_game_data import etl_player_data
 from os import walk
+import concurrent.futures
 import time
 import sys
 import getopt
@@ -33,7 +34,7 @@ def main():
     except getopt.GetoptError as err:
         print(str(err))
         sys.exit(2)
-
+    print(opts, args)
     for o, a in opts:
         if o == '-y':
             if int(a) < 1920 or int(a) > 2019:
@@ -78,16 +79,30 @@ def main():
     # games.extend(extract_team('2019SLN', 'N'), data_zip)
     # get_rosters(year, data_zip)
     results = {'PlateAppearance': [], 'Game': [], 'Run': [], 'BaseRunningEvent': []}
-    for game in games:
-        parsed_data = transform_game(game, rosters)
-        results['PlateAppearance'].extend(parsed_data['plate_appearance'])
-        results['Game'].extend(parsed_data['game'])
-        results['Run'].extend(parsed_data['run'])
-        results['BaseRunningEvent'].extend(parsed_data['base_running_event'])
+    game_results = []
+    if __name__ == '__main__':
+        with concurrent.futures.ProcessPoolExecutor() as executor:
+            print('hello')
+            new_result = [executor.submit(process_game, game) for game in games]
+            for parsed_data in concurrent.futures.as_completed(new_result):
+                parsed_data = parsed_data.result()
+                results['PlateAppearance'].extend(parsed_data['plate_appearance'])
+                results['Game'].extend(parsed_data['game'])
+                results['Run'].extend(parsed_data['run'])
+                results['BaseRunningEvent'].extend(parsed_data['base_running_event'])
+            #game_results = executor.map(process_game, games)
+        
+    # for game in games:
+    #     parsed_data = transform_game(game, rosters)
+        
     create_tables()
     load_data(results)
     etl_player_data(year)
     shutil.rmtree(data_td)
+
+def process_game(game):
+    # print(game['game_id'])
+    return transform_game(game, rosters)
 
 def get_rosters(year, data_zip):
     for team in team_set:
@@ -99,6 +114,7 @@ start = time.time()
 # get_rosters()
 # for team in rosters.keys():
 #     print(rosters[team])
+
 main()
 
 end = time.time()

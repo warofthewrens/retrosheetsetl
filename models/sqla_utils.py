@@ -1,7 +1,8 @@
 ''' utils for maintaining database with sqlalchemy '''
-from sqlalchemy import create_engine, Column, MetaData, Table, Integer, Date, String, Float
+from sqlalchemy import create_engine, Column, MetaData, Table, Integer, Date, String, Float, event, exc
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import Session
+import os
 #from marshmallow_schemas.schema_utils import password
 
 
@@ -12,6 +13,21 @@ if not engine.dialect.has_table(engine, 'PlateAppearance'):  # If table don't ex
     # Create a table with the appropriate Columns
 BASE = declarative_base(bind=ENGINE)
 
+# taken from https://docs.sqlalchemy.org/en/13/core/pooling.html
+@event.listens_for(engine, "connect")
+def connect(dbapi_connection, connection_record):
+    connection_record.info['pid'] = os.getpid()
+
+@event.listens_for(engine, "checkout")
+def checkout(dbapi_connection, connection_record, connection_proxy):
+    pid = os.getpid()
+    if connection_record.info['pid'] != pid:
+        connection_record.connection = connection_proxy.connection = None
+        raise exc.DisconnectionError(
+                "Connection record belongs to pid %s, "
+                "attempting to check out in pid %s" %
+                (connection_record.info['pid'], pid)
+        )
 
 def get_session():
     '''

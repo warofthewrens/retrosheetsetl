@@ -5,6 +5,7 @@ from models.game import Game
 from models.run import Run
 from models.base_running_event import BaseRunningEvent
 from sqlalchemy import MetaData
+import concurrent.futures
 MODELS = [PlateAppearance, Game, Run, BaseRunningEvent]
 
 
@@ -12,6 +13,8 @@ def create_tables():
     ''' creates all tables in the tables list '''
     BASE.metadata.create_all(tables=[x.__table__ for x in MODELS], checkfirst=True)
 
+def merge(session, model, row):
+    session.merge(model(**row))
 
 def load_data(results):
     '''
@@ -25,10 +28,13 @@ def load_data(results):
         data = results[model.__tablename__]
         i = 0
         # Here is where we convert directly the dictionary output of our marshmallow schema into sqlalchemy
-        for row in data:
-            if i % 1000 == 0:
-                print('loading...', i)
-            i+=1
-            session.merge(model(**row))
+        if __name__ == '__main__':
+            with concurrent.futures.ProcessPoolExecutor() as executor:
+                results = [executor.submit(merge, session, model, row) for row in data]
+        # for row in data:
+        #     if i % 1000 == 0:
+        #         print('loading...', i)
+        #     i+=1
+        #     session.merge(model(**row))
 
     session.commit()
