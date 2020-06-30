@@ -15,6 +15,8 @@ class Info(Schema):
     ump1b = fields.String(missing=None)
     ump2b = fields.String(missing=None)
     ump3b = fields.String(missing=None)
+    umplf = fields.String(missing=None)
+    umprf = fields.String(missing=None)
     how_scored = fields.String(data_key='howscored', missing=None)
     pitches = fields.String(missing=None)
     oscorer = fields.String(missing=None)
