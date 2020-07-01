@@ -18,6 +18,10 @@ team_set = set(['ANA', 'ARI', 'ATL', 'BAL', 'BOS', 'CHA', 'CHN', 'CIN', 'CLE', '
 rosters = {}
 
 #TODO: return dfs to correct place here
+pa_data_df = pd.DataFrame
+game_data_df = pd.DataFrame
+run_data_df = pd.DataFrame
+br_data_df = pd.DataFrame
 
 def get_rosters(year, data_zip):
     for team in team_set:
@@ -25,22 +29,7 @@ def get_rosters(year, data_zip):
     return rosters
 
 def get_player_data(player, team, year):
-    pa_data_df = pd.read_sql_table(
-        'plateappearance',
-        con=ENGINE
-    )
-    game_data_df = pd.read_sql_table(
-        'game',
-        con=ENGINE
-    )
-    run_data_df = pd.read_sql_table(
-        'run',
-        con=ENGINE
-    )
-    br_data_df = pd.read_sql_table(
-        'baserunningevent',
-        con=ENGINE
-    )
+    
     player_dict = {}
     pa_year = pa_data_df.year == int(year)
     game_year = game_data_df.year == int(year)
@@ -108,7 +97,7 @@ def get_game_data(year):
     for (dirpath, dirnames, filenames) in walk(data_td):
         f.extend(filenames)
         break
-
+    shutil.rmtree(data_td)
     for team_file in f:
         if team_file[-4:] == '.ROS':
             roster_files.add(team_file)
@@ -119,12 +108,11 @@ def get_game_data(year):
     players = rosters.keys()
     player_dicts = []
     i = 0
-    if __name__ == '__main__':
-        with concurrent.futures.ProcessPoolExecutor() as executor:
-            results = [executor.submit(get_player_data, player, team, year) for player, team in players]
-            for player_dict in concurrent.futures.as_completed(results):
-                new_player = p().dump(player_dict.result())
-                player_dicts.append(new_player)
+    with concurrent.futures.ProcessPoolExecutor() as executor:
+        results = [executor.submit(get_player_data, player, team, year) for player, team in players]
+        for player_dict in concurrent.futures.as_completed(results):
+            new_player = p().dump(player_dict.result())
+            player_dicts.append(new_player)
 
     # for player,team in players:
     #     if i % 50 == 0:
@@ -134,7 +122,7 @@ def get_game_data(year):
     #     # player_dict = {player: player_dict}
         
     #     i += 1
-    shutil.rmtree(data_td)
+    
     return player_dicts
 
 def load(results):
@@ -152,14 +140,33 @@ def load(results):
     session.commit()
 
 def etl_player_data(year):
-    global rosters
+    global game_data_df, run_data_df, br_data_df, pa_data_df
     rosters = {}
-    parsed_data = get_game_data(year)
+    if __name__ == '__main__':
+        game_data_df = pd.read_sql_table(
+            'game',
+            con=ENGINE
+        )
+        run_data_df = pd.read_sql_table(
+            'run',
+            con=ENGINE
+        )
+        br_data_df = pd.read_sql_table(
+            'baserunningevent',
+            con=ENGINE
+        )
+        print('plate appearance')
+        pa_data_df = pd.read_sql_table(
+            'plateappearance',
+            con=ENGINE,
+            chunksize = 1000
+        )
+        parsed_data = get_game_data(year)
     rows = {table: [] for table in ['Player']}
     rows['Player'].extend(parsed_data)
     load(rows)
 
-# etl_player_data('2000')
+etl_player_data('2018')
 # etl_player_data('2001')
 # etl_player_data('2002')
 # etl_player_data('2019')
