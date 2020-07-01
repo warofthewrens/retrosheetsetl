@@ -13,28 +13,30 @@ def create_tables():
     ''' creates all tables in the tables list '''
     BASE.metadata.create_all(tables=[x.__table__ for x in MODELS], checkfirst=True)
 
-def merge(session, model, row):
-    session.merge(model(**row))
+def merge(session, model, row, i):
+    if (i % 100 == 0):
+        print(i)
+    return model(**row)
 
 def load_data(results):
-    '''
-    takes in parsed data from transform and uses sqlalchemy to load into the database; note we dump the results
-    of the parsed schema directly into our SQLAlchemy models, then commit them to the DB!
-    @param dict results: results of transforming raw data
-    '''
-    # create a session: https://docs.sqlalchemy.org/en/13/orm/session.html
+    print('loading...')
     session = get_session()
     for model in MODELS:
+        print(model)
         data = results[model.__tablename__]
         i = 0
         # Here is where we convert directly the dictionary output of our marshmallow schema into sqlalchemy
-        if __name__ == '__main__':
-            with concurrent.futures.ProcessPoolExecutor() as executor:
-                results = [executor.submit(merge, session, model, row) for row in data]
+        objs = []
+        for row in data:
+            objs.append(merge(session, model, row, i))
+            i += 1
+        # results = [executor.submit(merge, session, model, row, i) for row in data]
+        # objs = []
+        # for result in concurrent.futures.as_completed(results):
+        #     objs.append(result.result())
         # for row in data:
-        #     if i % 1000 == 0:
-        #         print('loading...', i)
-        #     i+=1
-        #     session.merge(model(**row))
-
+        session.bulk_save_objects(objs)
     session.commit()
+    print('loaded')
+
+    

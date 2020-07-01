@@ -189,7 +189,7 @@ def transform_plays(plays, subs, rows, state):
     @param state - the game state
     '''
     # print('transforming')
-    print(state['game_id'])
+    #print(state['game_id'])
     pa_id = 0
     
     state['outs'] = 0
@@ -202,7 +202,6 @@ def transform_plays(plays, subs, rows, state):
     state['br_event_id'] = 0
     state['responsible_pitchers'] = defaultdict(str)
     state['runs_allowed'] = defaultdict(int)
-
     sub_spot = {}
     for sub in subs:
         sub_spot[int(sub['play_idx'])] = sub
