@@ -14,8 +14,6 @@ def create_tables():
     BASE.metadata.create_all(tables=[x.__table__ for x in MODELS], checkfirst=True)
 
 def merge(session, model, row, i):
-    if (i % 100 == 0):
-        print(i)
     return model(**row)
 
 def load_data(results):

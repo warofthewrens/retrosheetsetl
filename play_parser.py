@@ -48,10 +48,13 @@ def get_lineup_id(is_home, pos, state):
     @param pos - lineup position to lookup
     @param state - game state which includes current lineups
     '''
-    if is_home:
-        return state['lineups']['home_lineup'][pos]
+    if isinstance(pos, int):
+        if is_home:
+            return state['lineups']['home_lineup'][pos]
+        else:
+            return state['lineups']['away_lineup'][pos]
     else:
-        return state['lineups']['away_lineup'][pos]
+        return ''
 
 def get_field_id(is_home, pos, state):
     '''
@@ -60,11 +63,14 @@ def get_field_id(is_home, pos, state):
     @param pos - field position to lookup
     @param state - game state which includes current field positions
     '''
-    pos = int(pos)
-    if is_home:
-        return state['lineups']['away_field_pos'][pos]
+    if isinstance(pos, int):
+        if is_home:
+            return state['lineups']['away_field_pos'][pos]
+        else:
+            return state['lineups']['home_field_pos'][pos]
     else:
-        return state['lineups']['home_field_pos'][pos]
+        return ''
+    
 
 def get_batter_lineup(batter, state):
     '''
@@ -380,7 +386,6 @@ def play_parser(item, play, state, second_event, rows):
     event_type = 0
     outs_this_play = 0
     runners_out = []
-
     if item[0].isdigit():
         outs_this_play, event_type = parse_out(item, play, state, runners_out)
     

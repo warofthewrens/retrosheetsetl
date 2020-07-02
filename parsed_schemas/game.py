@@ -172,6 +172,9 @@ class Game(Schema):
         if game['home_team_runs'] > game['away_team_runs']:
             game['winning_team'] = game['home_team']
             game['losing_team'] = game['away_team']
+        elif game['home_team_runs'] == game['away_team_runs']:
+            game['winning_team'] = 'TIE'
+            game['losing_team'] = 'TIE'
         else:
             game['winning_team'] = game['away_team']
             game['losing_team'] = game['home_team']

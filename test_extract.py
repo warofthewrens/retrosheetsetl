@@ -52,6 +52,21 @@ class TestExtract(unittest.TestCase):
         play = {'play': 'D7/L+.1-H;B-H(TH)(E2/TH)(UR)(NR)'}
         result = Play().load(play)
         self.assertEqual(result, {'play': 'D7/L+.1-H;B-H(TH)(E2(B))(UR)(NR)'})
+    
+    def test_bad_modifier(self):
+        play = {'play': 'WP.3(NR)-H'}
+        result = Play().load(play)
+        self.assertEqual(result, {'play': 'WP.3-H(NR)'})
+
+    def test_bad_modifier_multi_move(self):
+        play = {'play': 'WP.3(NR)-H;2(NR)-H;1-3'}
+        result = Play().load(play)
+        self.assertEqual(result, {'play': 'WP.3-H(NR);2-H(NR);1-3'})
+    
+    def test_bad_modifier_multi_move_error(self):
+        play = {'play': 'WP.3(NR)-H;2(NR)XH(E2);1-3'}
+        result = Play().load(play)
+        self.assertEqual(result, {'play': 'WP.3-H(NR);2XH(E2(2))(NR);1-3'})
 
 if __name__ == '__main__':
     unittest.main()

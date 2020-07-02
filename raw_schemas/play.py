@@ -12,7 +12,6 @@ def validate_pitches(pitches):
 def validate_play(play):
     # print(play)
     return
-
 class Play(Schema):
     inning = fields.Integer(validate=validate.Range(1, 30))
     is_home = fields.Boolean()
@@ -23,7 +22,9 @@ class Play(Schema):
 
     @post_load
     def improve_play(self, data, **kwargs):
+        data['play'] = data['play'].replace('!', '')
         play = data['play'].split('.')
+        # print(play)
         event = play[0].split('/')
         outs = event[0]
         flag=False
@@ -58,7 +59,6 @@ def runner_moves(play):
             mutated = False
             new_move = move[cur_end:]
             placement = fielding_info.find('/')
-            
             if placement == -1:
                 placement = end_index
             if len(fielding_info) > 0:
@@ -69,6 +69,13 @@ def runner_moves(play):
                         move = move[0:cur_info] + '(' + fielding_info[0:placement] + '(' + runner + ')' + fielding_info[placement:] + ')'  + '(' + move[cur_end + 1:]
                     else:
                         move = move[0:cur_info] + '(' + fielding_info[0:placement] + '(' + runner + ')' + fielding_info[placement:] + ')' + move[cur_end + 1:]
+                if (fielding_info == 'NR'):
+                    if '-H' in move[cur_end:] or 'XH' in move[cur_end:]:
+                        runner = move[cur_info - 1]
+                        move = move[0:cur_info] + move[cur_end:] + '(NR)'
+                        cur_end -= 4
+                        new_move = move[cur_end:]
+                        
             # new_move = new_move[3:]
             # print('new_move', new_move)
             
@@ -110,6 +117,6 @@ def runner_events(play):
         for move in moves:
             scored = move.find('-H')
             if scored != -1 and '(NR)' not in move:
-                moves[i] = move[:scored] + '(NR)' + move[scored:]
+                moves[i] = move[:scored] + move[scored:] + '(NR)'
             i+=1
         play[1] = ';'.join(moves)
