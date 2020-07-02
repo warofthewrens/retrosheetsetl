@@ -20,17 +20,12 @@ game_data_df = pd.read_sql_table(
     con = ENGINE
 )
 
-pa_data_df = pd.read_sql_table(
-    'plateappearance',
-    con = ENGINE
-)
-
 run_data_df = pd.read_sql_table(
     'run',
     con = ENGINE
 )
 
-def get_team_data(team, year):
+def get_team_data(team, year, pa_data_df):
     team_dict = {}
     game_year = (game_data_df.year == int(year))
     player_year = (player_data_df.year == int(year)) & (player_data_df.team == team)
@@ -100,14 +95,14 @@ def get_team_data(team, year):
     team_dict['RpERA'] = (team_dict['RpER'] / team_dict['RpIP']) * 9
     return team_dict
 
-def get_teams_data(year):
+def get_teams_data(year, pa_data_df):
     team_dicts = []
 
     teams = player_data_df[player_data_df.year == int(year)].team.unique()
     print(teams)
     
     for team in teams:
-        team_dict = get_team_data(team, year)
+        team_dict = get_team_data(team, year, pa_data_df)
         new_team = t().dump(team_dict)
         team_dicts.append(new_team)
     return team_dicts
@@ -127,9 +122,18 @@ def load(results):
     session.commit()
 
 def etl_team_data(year):
-    parsed_data = get_teams_data(year)
+    print(year)
+    pa_query = '''
+        select * from plateappearance where year =
+    ''' + year
+    pa_data_df = pd.concat(list(pd.read_sql_query(
+        pa_query,
+        con = ENGINE,
+        chunksize = 1000
+    )))
+    parsed_data = get_teams_data(year, pa_data_df)
     rows = {table: [] for table in ['team']}
     rows['team'].extend(parsed_data)
     load(rows)
 
-etl_team_data('2001')
+# etl_team_data('2003')

@@ -3,6 +3,7 @@ from extract import extract_team, extract_roster, extract_rosters, extract_game_
 from transform import transform_game 
 from load import create_tables, load_data
 from extract_game_data import etl_player_data
+from etl_team_data import etl_team_data
 from os import walk
 import concurrent.futures
 import time
@@ -26,11 +27,8 @@ def main():
     
     with concurrent.futures.ProcessPoolExecutor() as executor:
         global rosters
-        games = []
-        year = '2019'
+        years = []
         teams = set([])
-        roster_files = set([])
-        game_files = set([])
         try:
             opts, args = getopt.getopt(sys.argv[1:], 'y:t:')
         except getopt.GetoptError as err:
@@ -42,58 +40,65 @@ def main():
                 if int(a) < 1920 or int(a) > 2019:
                     raise Exception('invalid year')
                 else:
-                    year = a
+                    years.append(a)
             if o == '-t':
                 if a not in team_set:
                     raise Exception('invalid_team')
                 else:
                     teams.add(a)
-        
-        data_zip, data_td = extract_game_data_by_year(year)
-        
-        f = []
-        for (dirpath, dirnames, filenames) in walk(data_td):
-            f.extend(filenames)
-            break
-        shutil.rmtree(data_td)
-        print(f)
-        if len(teams) == 0:
-            for team_file in f:
-                if team_file[-4:] == '.ROS':
-                    print('roster', team_file)
-                    roster_files.add(team_file)
-                elif team_file[-4:] == '.EVN' or team_file[-4:] == '.EVA':
-                    print('game', team_file)
-                    game_files.add(team_file)
-                else:
-                    print(team_file)
-        else:
-            for team_file in f:
-                if team_file[-4:] == '.ROS':
-                    roster_files.add(team_file)
-                if team_file[4:7] in teams:
-                    game_files.add(team_file)
-        
-        for team in game_files:
-            games.extend(extract_team(team, data_zip))
-        
-        for team in roster_files:
-            rosters.update(extract_roster(team, data_zip))
-        # print(rosters)
-        # games.extend(extract_team('2019SLN', 'N'), data_zip)
-        # get_rosters(year, data_zip)
         results = {'PlateAppearance': [], 'Game': [], 'Run': [], 'BaseRunningEvent': []}
-        game_results = []
-        new_result = [executor.submit(process_game, game, rosters) for game in games]
-        for parsed_data in concurrent.futures.as_completed(new_result):
-            parsed_data = parsed_data.result()
-            # print(parsed_data['game'][0]['home_team'])
-            results['PlateAppearance'].extend(parsed_data['plate_appearance'])
-            results['Game'].extend(parsed_data['game'])
-            results['Run'].extend(parsed_data['run'])
-            results['BaseRunningEvent'].extend(parsed_data['base_running_event'])
+        for year in years:
+            games = []
+            rosters = {}
+            roster_files = set([])
+            game_files = set([])
+            data_zip, data_td = extract_game_data_by_year(year)
+            
+            f = []
+            for (dirpath, dirnames, filenames) in walk(data_td):
+                f.extend(filenames)
+                break
+            shutil.rmtree(data_td)
+            print(f)
+            if len(teams) == 0:
+                for team_file in f:
+                    if team_file[-4:] == '.ROS':
+                        print('roster', team_file)
+                        roster_files.add(team_file)
+                    elif team_file[-4:] == '.EVN' or team_file[-4:] == '.EVA':
+                        print('game', team_file)
+                        game_files.add(team_file)
+                    else:
+                        print(team_file)
+            else:
+                for team_file in f:
+                    if team_file[-4:] == '.ROS':
+                        roster_files.add(team_file)
+                    if team_file[4:7] in teams:
+                        game_files.add(team_file)
+            
+            for team in game_files:
+                games.extend(extract_team(team, data_zip))
+            
+            for team in roster_files:
+                rosters.update(extract_roster(team, data_zip))
+            # print(rosters)
+            # games.extend(extract_team('2019SLN', 'N'), data_zip)
+            # get_rosters(year, data_zip)
+            
+            game_results = []
+            # new_result = [executor.submit(process_game, game, rosters) for game in games]
+            # for parsed_data in concurrent.futures.as_completed(new_result):
+            for game in games:
+                parsed_data = transform_game(game, rosters)
+                # parsed_data = parsed_data.result()
+                # print(parsed_data['game'][0]['home_team'])
+                results['PlateAppearance'].extend(parsed_data['plate_appearance'])
+                results['Game'].extend(parsed_data['game'])
+                results['Run'].extend(parsed_data['run'])
+                results['BaseRunningEvent'].extend(parsed_data['base_running_event'])
         executor.shutdown(wait=True) 
-    return results, year
+    return results, years
     
         
             #game_results = executor.map(process_game, games)
@@ -119,11 +124,17 @@ start = time.time()
 #     print(rosters[team])
 
 if __name__ == '__main__':
-    results,year = main()
-    print(year)
+    results,years = main()
+    print(years)
     create_tables()
-    load_data(results)
-    etl_player_data(year)
+    for year in years:
+        load_data(results)
+        print('working on team')
+        etl_team_data(year)
+        print('done team, starting_player')
+        etl_player_data(year)
+        print('done player')
+        
 
 end = time.time()
 print(end - start)

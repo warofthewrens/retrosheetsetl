@@ -189,7 +189,7 @@ def transform_plays(plays, subs, rows, state):
     @param state - the game state
     '''
     # print('transforming')
-    #print(state['game_id'])
+    # print(state['game_id'])
     pa_id = 0
     
     state['outs'] = 0

@@ -8,6 +8,8 @@ from models.player import Player
 from parsed_schemas.player import Player as p
 from extract import extract_roster_team, extract_game_data_by_year
 import concurrent.futures
+import multiprocessing
+import pickle
 
 MODELS = [Player]
 
@@ -18,17 +20,30 @@ team_set = set(['ANA', 'ARI', 'ATL', 'BAL', 'BOS', 'CHA', 'CHN', 'CIN', 'CLE', '
 rosters = {}
 
 #TODO: return dfs to correct place here
-pa_data_df = pd.DataFrame
-game_data_df = pd.DataFrame
-run_data_df = pd.DataFrame
-br_data_df = pd.DataFrame
+game_data_df = pd.read_sql_table(
+            'game',
+            con=ENGINE
+        )
+run_data_df = pd.read_sql_table(
+    'run',
+    con=ENGINE
+)
+br_data_df = pd.read_sql_table(
+    'baserunningevent',
+    con=ENGINE
+)
+
+# pa_data_df = pd.DataFrame
+# game_data_df = pd.DataFrame
+# run_data_df = pd.DataFrame
+# br_data_df = pd.DataFrame
 
 def get_rosters(year, data_zip):
     for team in team_set:
         rosters.update(extract_roster_team(year + team, data_zip))
     return rosters
 
-def get_player_data(player, team, year):
+def get_player_data(player, team, year, pa_data_df):
     
     player_dict = {}
     pa_year = pa_data_df.year == int(year)
@@ -88,7 +103,7 @@ def get_player_data(player, team, year):
     player_dict['player_name'] = rosters[(player, team)]['player_first_name'] + ' ' + rosters[(player, team)]['player_last_name']
     return player_dict
 
-def get_game_data(year):
+def get_game_data(year, pa_data_df):
     roster_files = set([])
     
     data_zip, data_td = extract_game_data_by_year(year)
@@ -108,11 +123,13 @@ def get_game_data(year):
     players = rosters.keys()
     player_dicts = []
     i = 0
-    with concurrent.futures.ProcessPoolExecutor() as executor:
-        results = [executor.submit(get_player_data, player, team, year) for player, team in players]
-        for player_dict in concurrent.futures.as_completed(results):
-            new_player = p().dump(player_dict.result())
-            player_dicts.append(new_player)
+    for player, team in players:
+        player_dict = get_player_data(player, team, year, pa_data_df)
+        new_player = p().dump(player_dict)
+        player_dicts.append(new_player)
+        if (i % 25 == 0):
+            print(new_player['player_name'])
+        i += 1
 
     # for player,team in players:
     #     if i % 50 == 0:
@@ -122,7 +139,8 @@ def get_game_data(year):
     #     # player_dict = {player: player_dict}
         
     #     i += 1
-    
+    if len(pickle.dumps(player_dicts)) > 2 * 10 ** 9:
+        raise RuntimeError('return data cannot be sent')
     return player_dicts
 
 def load(results):
@@ -140,33 +158,21 @@ def load(results):
     session.commit()
 
 def etl_player_data(year):
-    global game_data_df, run_data_df, br_data_df, pa_data_df
     rosters = {}
-    if __name__ == '__main__':
-        game_data_df = pd.read_sql_table(
-            'game',
-            con=ENGINE
-        )
-        run_data_df = pd.read_sql_table(
-            'run',
-            con=ENGINE
-        )
-        br_data_df = pd.read_sql_table(
-            'baserunningevent',
-            con=ENGINE
-        )
-        print('plate appearance')
-        pa_data_df = pd.read_sql_table(
-            'plateappearance',
-            con=ENGINE,
-            chunksize = 1000
-        )
-        parsed_data = get_game_data(year)
+    pa_query = '''select * from plateappearance where year = ''' + year
+    print('plate_appearance')
+    pa_start = time.time()
+    pa_data_df = pd.concat(list(pd.read_sql_query(
+        pa_query,
+        con=ENGINE,
+        chunksize = 1000
+    )))
+    print('done bigger chunk', time.time() - pa_start)
+    parsed_data = get_game_data(year, pa_data_df)
     rows = {table: [] for table in ['Player']}
     rows['Player'].extend(parsed_data)
     load(rows)
 
-etl_player_data('2018')
 # etl_player_data('2001')
 # etl_player_data('2002')
 # etl_player_data('2019')
