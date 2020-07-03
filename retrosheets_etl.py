@@ -42,10 +42,7 @@ def main():
                 else:
                     years.append(a)
             if o == '-t':
-                if a not in team_set:
-                    raise Exception('invalid_team')
-                else:
-                    teams.add(a)
+                teams.add(a)
         results = {'PlateAppearance': [], 'Game': [], 'Run': [], 'BaseRunningEvent': []}
         for year in years:
             games = []
@@ -127,13 +124,16 @@ if __name__ == '__main__':
     results,years = main()
     print(years)
     create_tables()
+    load_data(results)
     for year in years:
-        load_data(results)
-        print('working on team')
-        etl_team_data(year)
-        print('done team, starting_player')
+        
+        
+        print('starting_player')
         etl_player_data(year)
         print('done player')
+        print('working on team')
+        etl_team_data(year)
+        print('done team')
         
 
 end = time.time()

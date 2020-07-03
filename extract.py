@@ -13,10 +13,19 @@ from raw_schemas.play import Play
 from raw_schemas.data import Data
 from raw_schemas.game import Game
 import numpy as np
+from marshmallow import EXCLUDE
 
 def extract_game_data_by_year(year):
     game_data_url = 'https://www.retrosheet.org/events/' + year + 'eve.zip'
     data_req = requests.get(game_data_url)
+    data_td = tempfile.mkdtemp()
+    data_zip = zipfile.ZipFile(io.BytesIO(data_req.content))
+    data_zip.extractall(data_td)
+    return data_zip, data_td
+
+def extract_playoff_data_by_year(year):
+    playoff_data_url = 'https://www.retrosheet.org/events/' + year + 'post.zip'
+    data_req = requests.get(playoff_data_url)
     data_td = tempfile.mkdtemp()
     data_zip = zipfile.ZipFile(io.BytesIO(data_req.content))
     data_zip.extractall(data_td)
