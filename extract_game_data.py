@@ -20,18 +20,7 @@ team_set = set(['ANA', 'ARI', 'ATL', 'BAL', 'BOS', 'CHA', 'CHN', 'CIN', 'CLE', '
 rosters = {}
 
 #TODO: return dfs to correct place here
-game_data_df = pd.read_sql_table(
-            'game',
-            con=ENGINE
-        )
-run_data_df = pd.read_sql_table(
-    'run',
-    con=ENGINE
-)
-br_data_df = pd.read_sql_table(
-    'baserunningevent',
-    con=ENGINE
-)
+
 
 # pa_data_df = pd.DataFrame
 # game_data_df = pd.DataFrame
@@ -43,13 +32,15 @@ def get_rosters(year, data_zip):
         rosters.update(extract_roster_team(year + team, data_zip))
     return rosters
 
-def get_player_data(player, team, year, pa_data_df):
+def get_player_data(player, team, year, pa_data_df, game_data_df, run_data_df, br_data_df):
     
     player_dict = {}
     pa_year = pa_data_df.year == int(year)
     game_year = game_data_df.year == int(year)
     run_year = run_data_df.year == int(year)
-    br_year = br_data_df.year == int(year)
+    br_year = (br_data_df.year == int(year)) & (br_data_df.running_team == team)
+    team_scored = run_data_df.scoring_team == team
+    team_scored_against = run_data_df.conceding_team == team
     batter_team_bool = (pa_data_df.batter_id == player) & (pa_data_df.batter_team == team) 
     pitcher_team_bool = (pa_data_df.pitcher_id == player) & (pa_data_df.pitcher_team == team) 
     player_dict['PA'] = pa_data_df[batter_team_bool & (pa_data_df.pa_flag) & pa_year].pa_flag.count()
@@ -60,7 +51,7 @@ def get_player_data(player, team, year, pa_data_df):
     player_dict['HR'] = pa_data_df[batter_team_bool & (pa_data_df.hit_val == 4) & pa_year].hit_val.count()
     player_dict['TB'] = pa_data_df[batter_team_bool & (pa_data_df.hit_val > 0) & pa_year].hit_val.sum()
     player_dict['H'] = player_dict['S'] + player_dict['D'] + player_dict['T'] + player_dict['HR']
-    player_dict['R'] = run_data_df[(run_data_df.scoring_player == player) & run_year].scoring_player.count()
+    player_dict['R'] = run_data_df[(run_data_df.scoring_player == player) & run_year & team_scored].scoring_player.count()
     player_dict['RBI'] = pa_data_df[batter_team_bool & (pa_data_df.rbi > 0) & pa_year].rbi.sum()
     player_dict['SB'] = br_data_df[(br_data_df.runner == player) & (br_data_df.event == 'S') & br_year].runner.count()
     player_dict['CS'] = br_data_df[(br_data_df.runner == player) & (br_data_df.event == 'C') & br_year].runner.count()
@@ -89,8 +80,8 @@ def get_player_data(player, team, year, pa_data_df):
     player_dict['W'] = game_data_df[(player == game_data_df.winning_pitcher) & (team == game_data_df.winning_team) & game_year].winning_team.count()
     player_dict['L'] = game_data_df[(player == game_data_df.losing_pitcher) & (team == game_data_df.losing_team) & game_year].losing_team.count()
     player_dict['SV'] = game_data_df[(player == game_data_df.save) & (team == game_data_df.winning_team) & game_year].winning_team.count()
-    player_dict['TR'] = run_data_df[(run_data_df.responsible_pitcher == player) & (run_data_df.conceding_team == team) & run_year].responsible_pitcher.count()
-    player_dict['ER'] = run_data_df[(run_data_df.responsible_pitcher == player) & (run_data_df.conceding_team == team) & run_data_df.is_earned & run_year].responsible_pitcher.count()
+    player_dict['TR'] = run_data_df[(run_data_df.responsible_pitcher == player) & team_scored_against & run_year].responsible_pitcher.count()
+    player_dict['ER'] = run_data_df[(run_data_df.responsible_pitcher == player) & team_scored_against & run_data_df.is_earned & run_year].responsible_pitcher.count()
     if player_dict['IP'] > 0:
         player_dict['RA'] = (player_dict['TR'] / player_dict['IP']) * 9
         player_dict['ERA'] = (player_dict['ER'] / player_dict['IP']) * 9
@@ -103,7 +94,7 @@ def get_player_data(player, team, year, pa_data_df):
     player_dict['player_name'] = rosters[(player, team)]['player_first_name'] + ' ' + rosters[(player, team)]['player_last_name']
     return player_dict
 
-def get_game_data(year, pa_data_df):
+def get_game_data(year, pa_data_df, game_data_df, run_data_df, br_data_df):
     roster_files = set([])
     
     data_zip, data_td = extract_game_data_by_year(year)
@@ -124,7 +115,7 @@ def get_game_data(year, pa_data_df):
     player_dicts = []
     i = 0
     for player, team in players:
-        player_dict = get_player_data(player, team, year, pa_data_df)
+        player_dict = get_player_data(player, team, year, pa_data_df, game_data_df, run_data_df, br_data_df)
         new_player = p().dump(player_dict)
         player_dicts.append(new_player)
         if (i % 25 == 0):
@@ -154,7 +145,8 @@ def load(results):
             if i % 1000 == 0:
                 print('loading...', i)
             i+=1
-            session.merge(model(**row))
+            if row['AB'] > 0 or row['IP'] > 0:
+                session.merge(model(**row))
     session.commit()
 
 def etl_player_data(year):
@@ -167,12 +159,24 @@ def etl_player_data(year):
         con=ENGINE,
         chunksize = 1000
     )))
+    game_data_df = pd.read_sql_table(
+        'game',
+        con=ENGINE
+    )
+    run_data_df = pd.read_sql_table(
+        'run',
+        con=ENGINE
+    )
+    br_data_df = pd.read_sql_table(
+        'baserunningevent',
+        con=ENGINE
+    )
     print('done bigger chunk', time.time() - pa_start)
-    parsed_data = get_game_data(year, pa_data_df)
+    parsed_data = get_game_data(year, pa_data_df, game_data_df, run_data_df, br_data_df)
     rows = {table: [] for table in ['Player']}
     rows['Player'].extend(parsed_data)
     load(rows)
 
-# etl_player_data('2001')
-# etl_player_data('2002')
-# etl_player_data('2019')
+# etl_player_data('2003')
+# etl_player_data('2004')
+# etl_player_data('2005')

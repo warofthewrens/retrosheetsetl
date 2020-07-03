@@ -1,8 +1,11 @@
-from marshmallow import Schema, fields, pre_load
+from marshmallow import Schema, fields, pre_load, EXCLUDE
 from datetime import datetime
 
 #TODO: much better validation
 class Info(Schema):
+    class Meta:
+        unknown = EXCLUDE
+
     visiting_team = fields.String(data_key='visteam', missing=None)
     home_team = fields.String(data_key='hometeam', missing=None)
     site = fields.String(missing=None)
@@ -31,6 +34,7 @@ class Info(Schema):
     winning_pitcher = fields.String(data_key='wp', missing=None)
     losing_pitcher = fields.String(data_key='lp', missing=None)
     save = fields.String(allow_none=True, missing=None)
+    inputter = fields.String(missing=None)
 
 
     @pre_load
