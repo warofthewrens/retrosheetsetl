@@ -6,7 +6,7 @@ import os
 #from marshmallow_schemas.schema_utils import password
 
 
-ENGINE = create_engine('mysql+pymysql://root:Westhamphillie$2008@localhost/retrosheets', echo=False)
+ENGINE = create_engine('mysql+pymysql://root:Westhamphillie$2008@localhost/retrosheet', echo=False)
 PLAYOFF_ENGINE = create_engine('mysql+pymysql://root:Westhamphillie$2008@localhost/playoffs', echo=False)
 
 engine = create_engine("sqlite:///myexample.db")  # Access the DB Engine

@@ -118,8 +118,11 @@ class PlateAppearance(Schema):
 
     @pre_dump
     def count(self, data, **kwargs):
-        data['balls'] = int(data['count'][0])
-        data['strikes'] = int(data['count'][1])
+        if len(data['count']) > 1:
+            if data['count'][0].isdigit():
+                data['balls'] = int(data['count'][0])
+            if data['count'][1].isdigit():
+                data['strikes'] = int(data['count'][1])
         return data
     
     @pre_dump

@@ -157,7 +157,7 @@ def etl_player_data(year):
     pa_data_df = pd.concat(list(pd.read_sql_query(
         pa_query,
         con=ENGINE,
-        chunksize = 1000
+        chunksize = 10000
     )))
     game_data_df = pd.read_sql_table(
         'game',
