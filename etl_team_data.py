@@ -49,7 +49,7 @@ def get_team_data(team, year, pa_data_df, player_data_df, game_data_df, run_data
     team_dict['SF'] = player_data_df[player_year].SF.sum()
     team_dict['SH'] = player_data_df[player_year].SH.sum()
     team_dict['AVG'] = team_dict['H'] / team_dict['AB'] + 0.0
-    team_dict['OBP'] = team_dict['H'] / team_dict['BB'] + 0.0
+    team_dict['OBP'] = (team_dict['H'] + team_dict['BB'] + team_dict['HBP'] + 0.0) / (team_dict['AB'] + team_dict['BB'] + team_dict['HBP'] + team_dict['SF'])
     team_dict['SLG'] = team_dict['TB'] / team_dict ['AB']
     team_dict['OPS'] = team_dict['OBP'] + team_dict['SLG']
     team_dict['BF'] = player_data_df[player_year].BF.sum()
@@ -137,6 +137,8 @@ def etl_team_data(year):
     rows['team'].extend(parsed_data)
     load(rows)
 
+for i in range(2013, 2020):
+    etl_team_data(str(i))
 # etl_team_data('2003')
 # etl_team_data('2004')
 # etl_team_data('2005')
