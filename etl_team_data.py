@@ -7,12 +7,13 @@ from models.sqla_utils import ENGINE, BASE, get_session
 from models.team import Team
 from parsed_schemas.team import Team as t
 from extract import extract_roster_team, extract_game_data_by_year
+from extract_fangraphs import extract_fangraphs
 
 MODELS = [Team]
 
 
 
-def get_team_data(team, year, pa_data_df, player_data_df, game_data_df, run_data_df):
+def get_team_data(team, year, pa_data_df, player_data_df, game_data_df, run_data_df, woba_weights):
     team_dict = {}
     game_year = (game_data_df.year == int(year))
     player_year = (player_data_df.year == int(year)) & (player_data_df.team == team)
@@ -44,6 +45,7 @@ def get_team_data(team, year, pa_data_df, player_data_df, game_data_df, run_data
     team_dict['SB'] = player_data_df[player_year].SB.sum()
     team_dict['CS'] = player_data_df[player_year].CS.sum()
     team_dict['BB'] = player_data_df[player_year].BB.sum()
+    team_dict['IBB'] = player_data_df[player_year].IBB.sum()
     team_dict['SO'] = player_data_df[player_year].SO.sum()
     team_dict['HBP'] = player_data_df[player_year].HBP.sum()
     team_dict['SF'] = player_data_df[player_year].SF.sum()
@@ -52,6 +54,14 @@ def get_team_data(team, year, pa_data_df, player_data_df, game_data_df, run_data
     team_dict['OBP'] = (team_dict['H'] + team_dict['BB'] + team_dict['HBP'] + 0.0) / (team_dict['AB'] + team_dict['BB'] + team_dict['HBP'] + team_dict['SF'])
     team_dict['SLG'] = team_dict['TB'] / team_dict ['AB']
     team_dict['OPS'] = team_dict['OBP'] + team_dict['SLG']
+    bb = woba_weights.wBB * (team_dict['BB'] - team_dict['IBB'])
+    hbp = (woba_weights.wHBP * team_dict['HBP'])
+    hits = (woba_weights.w1B * team_dict['S']) + (woba_weights.w2B * team_dict['D']) + (woba_weights.w3B + team_dict['T']) + (woba_weights.wHR * team_dict['HR'])
+    baserunning = (woba_weights.runSB * team_dict['SB']) + (woba_weights.runCS * team_dict['CS'])
+    sabr_PA = (team_dict['AB'] + team_dict['BB'] + team_dict['HBP'] + team_dict['SF'])
+    sabr_PA_no_IBB = sabr_PA - team_dict['IBB']
+    team_dict['wOBA'] = (bb + hbp + hits + baserunning)/sabr_PA_no_IBB
+    team_dict['wRAA'] = ((team_dict['wOBA'] - woba_weights.wOBA)/(woba_weights.wOBAScale)) * sabr_PA
     team_dict['BF'] = player_data_df[player_year].BF.sum()
     team_dict['IP'] = player_data_df[player_year].IP.sum()
     team_dict['Ha'] = player_data_df[player_year].Ha.sum()
@@ -68,6 +78,7 @@ def get_team_data(team, year, pa_data_df, player_data_df, game_data_df, run_data
                                  & (run_data_df.is_team_earned) & run_year].conceding_team.count()
     team_dict['RAA'] = (team_dict['TR'] / team_dict['IP']) * 9
     team_dict['ERA'] = (team_dict['ER'] / team_dict['IP']) * 9
+    team_dict['FIP'] = (((13 * team_dict['HRa']) + (3 * (team_dict['BBa'] + team_dict['HBPa'])) - (2 * team_dict['K']))/team_dict['IP'])
     team_dict['SpIP'] = pa_data_df[(pa_data_df.sp_flag) & pa_year].outs_on_play.sum()/3
     team_dict['RpIP'] = pa_data_df[~(pa_data_df.sp_flag) & pa_year].outs_on_play.sum()/3
     # print(type((run_data_df.is_sp)), type(run_data_df.conceding_team == team), type(run_data_df.is_earned), type(run_year))
@@ -78,8 +89,12 @@ def get_team_data(team, year, pa_data_df, player_data_df, game_data_df, run_data
                                     & run_year].is_sp.count()
     team_dict['RpTR'] = run_data_df[(run_data_df.is_sp == True) & (run_data_df.conceding_team == team) 
                                     & (run_data_df.is_team_earned) & run_year].is_sp.count()
+    relief_hr = pa_data_df[(pa_data_df.sp_flag == False) & (pa_data_df.pitcher_team == team) & (pa_data_df.hit_val == 4) & pa_year].pa_flag.count()
+    relief_k = pa_data_df[(pa_data_df.sp_flag == False) & (pa_data_df.pitcher_team == team) & (pa_data_df.event_type == 3) & pa_year].pa_flag.count()
+    relief_bb = pa_data_df[(pa_data_df.sp_flag == False) & (pa_data_df.pitcher_team == team) & (pa_data_df.event_type == 14) & pa_year].pa_flag.count()
     team_dict['SpERA'] = (team_dict['SpER'] / team_dict['SpIP']) * 9
     team_dict['RpERA'] = (team_dict['RpER'] / team_dict['RpIP']) * 9
+    team_dict['RpFIP'] = ((13 * relief_hr) + (3 * relief_k) - (2 * relief_bb))/(team_dict['RpIP'])
     return team_dict
 
 def get_teams_data(year, pa_data_df, player_data_df, game_data_df, run_data_df):
@@ -87,9 +102,10 @@ def get_teams_data(year, pa_data_df, player_data_df, game_data_df, run_data_df):
 
     teams = player_data_df[player_data_df.year == int(year)].team.unique()
     print(teams)
-    
+    woba_df = extract_fangraphs()
+    woba_weights = woba_df[woba_df.Season == int(year)]
     for team in teams:
-        team_dict = get_team_data(team, year, pa_data_df, player_data_df, game_data_df, run_data_df)
+        team_dict = get_team_data(team, year, pa_data_df, player_data_df, game_data_df, run_data_df, woba_weights)
         new_team = t().dump(team_dict)
         team_dicts.append(new_team)
     return team_dicts
@@ -137,7 +153,7 @@ def etl_team_data(year):
     rows['team'].extend(parsed_data)
     load(rows)
 
-for i in range(2013, 2020):
+for i in range(1990, 2020):
     etl_team_data(str(i))
 # etl_team_data('2003')
 # etl_team_data('2004')

@@ -10,6 +10,7 @@ from extract import extract_roster_team, extract_game_data_by_year
 import concurrent.futures
 import multiprocessing
 import pickle
+from extract_fangraphs import extract_fangraphs
 
 MODELS = [Player]
 
@@ -32,7 +33,7 @@ def get_rosters(year, data_zip):
         rosters.update(extract_roster_team(year + team, data_zip))
     return rosters
 
-def get_player_data(player, team, year, pa_data_df, game_data_df, run_data_df, br_data_df):
+def get_player_data(player, team, year, pa_data_df, game_data_df, run_data_df, br_data_df, woba_weights):
     
     player_dict = {}
     pa_year = pa_data_df.year == int(year)
@@ -56,6 +57,7 @@ def get_player_data(player, team, year, pa_data_df, game_data_df, run_data_df, b
     player_dict['SB'] = br_data_df[(br_data_df.runner == player) & (br_data_df.event == 'S') & br_year].runner.count()
     player_dict['CS'] = br_data_df[(br_data_df.runner == player) & (br_data_df.event == 'C') & br_year].runner.count()
     player_dict['BB'] = pa_data_df[batter_team_bool & ((pa_data_df.event_type == 14) | (pa_data_df.event_type == 15)) & pa_year].pa_flag.count()
+    player_dict['IBB'] = pa_data_df[batter_team_bool & (pa_data_df.event_type == 15) & pa_year].pa_flag.count()
     player_dict['SO'] = pa_data_df[batter_team_bool & (pa_data_df.event_type == 3) & pa_year].pa_flag.count()
     player_dict['HBP'] = pa_data_df[batter_team_bool & (pa_data_df.event_type == 16) & pa_year].pa_flag.count()
     player_dict['SF'] = pa_data_df[batter_team_bool & pa_data_df.sac_fly & pa_year].pa_flag.count()
@@ -65,8 +67,20 @@ def get_player_data(player, team, year, pa_data_df, game_data_df, run_data_df, b
         player_dict['OBP'] = (player_dict['H'] + player_dict['BB'] + player_dict['HBP']) / (player_dict['AB'] + player_dict['BB'] + player_dict['HBP'] + player_dict['SF'])
         player_dict['SLG'] = player_dict['TB']/player_dict['AB']
         player_dict['OPS'] = player_dict['OBP'] + player_dict['SLG']
+        bb = woba_weights.wBB * (player_dict['BB'] - player_dict['IBB'])
+        hbp = (woba_weights.wHBP * player_dict['HBP'])
+        hits = (woba_weights.w1B * player_dict['S']) + (woba_weights.w2B * player_dict['D']) + (woba_weights.w3B + player_dict['T']) + (woba_weights.wHR * player_dict['HR'])
+        baserunning = (woba_weights.runSB * player_dict['SB']) + (woba_weights.runCS * player_dict['CS'])
+        sabr_PA = (player_dict['AB'] + player_dict['BB'] + player_dict['HBP'] + player_dict['SF'])
+        sabr_PA_no_IBB = sabr_PA - player_dict['IBB']
+        # player_dict['wOBA'] = (((woba_weights.wBB * (player_dict['BB'] - player_dict['IBB'])) + (woba_weights.wHBP * player_dict['HBP']) +
+        #                         (woba_weights.w1B * player_dict['S']) + (woba_weights.w2B * player_dict['D']) + (woba_weights.w3B + player_dict['T'])
+        #                         (woba_weights.wHR * player_dict['HR']) + (woba_weights.runSB * player_dict['SB']) + (woba_weights.runCS * player_dict['CS']))/
+        #                         (player_dict['AB'] + player_dict['BB'] - player_dict['IBB'] + player_dict['HBP'] + player_dict['SF']))
+        player_dict['wOBA'] = (bb + hbp + hits + baserunning)/sabr_PA_no_IBB
+        player_dict['wRAA'] = ((player_dict['wOBA'] - woba_weights.wOBA)/(woba_weights.wOBAScale)) * sabr_PA
     else:
-        player_dict['AVG'], player_dict['OBP'], player_dict['SLG'], player_dict['OPS'] = 0, 0, 0, 0
+        player_dict['AVG'], player_dict['OBP'], player_dict['SLG'], player_dict['OPS'], player_dict['wOBA'], player_dict['wRAA'] = 0, 0, 0, 0, 0, 0
     player_dict['BF'] = pa_data_df[pitcher_team_bool & pa_data_df.pa_flag & pa_year].pa_flag.count()
     player_dict['IP'] = float((pa_data_df[pitcher_team_bool & (pa_data_df.outs_on_play > 0) & pa_year].outs_on_play.sum() + 0.0)/3.0)
     player_dict['Ha'] = pa_data_df[pitcher_team_bool & (pa_data_df.hit_val>0) & pa_year].hit_val.count()
@@ -88,6 +102,7 @@ def get_player_data(player, team, year, pa_data_df, game_data_df, run_data_df, b
         player_dict['FIP'] = (13 * player_dict['HR'] + 3 * player_dict['BB'] - 2 * player_dict['K'])
     else:
         player_dict['RA'], player_dict['ERA'] = 0, 0
+    
     player_dict['player_id'] = player
     player_dict['team'] = team
     player_dict['year'] = year
@@ -95,8 +110,11 @@ def get_player_data(player, team, year, pa_data_df, game_data_df, run_data_df, b
     return player_dict
 
 def get_game_data(year, pa_data_df, game_data_df, run_data_df, br_data_df):
+    global rosters
     roster_files = set([])
     
+    woba_df = extract_fangraphs()
+    woba_weights = woba_df[woba_df.Season == int(year)]
     data_zip, data_td = extract_game_data_by_year(year)
     
     f = []
@@ -107,29 +125,23 @@ def get_game_data(year, pa_data_df, game_data_df, run_data_df, br_data_df):
     for team_file in f:
         if team_file[-4:] == '.ROS':
             roster_files.add(team_file)
-    
+    rosters = {}
     for team in roster_files:
         rosters.update(extract_roster_team(team, data_zip))
 
     players = rosters.keys()
+    print(len(players))
     player_dicts = []
     i = 0
     for player, team in players:
-        player_dict = get_player_data(player, team, year, pa_data_df, game_data_df, run_data_df, br_data_df)
+        player_dict = get_player_data(player, team, year, pa_data_df, game_data_df, run_data_df, br_data_df, woba_weights)
         new_player = p().dump(player_dict)
         player_dicts.append(new_player)
         if (i % 25 == 0):
             print(new_player['player_name'])
         i += 1
 
-    # for player,team in players:
-    #     if i % 50 == 0:
-    #         print(player)
-        
-    #     player_dict = get_player_data(player, team, year)
-    #     # player_dict = {player: player_dict}
-        
-    #     i += 1
+
     if len(pickle.dumps(player_dicts)) > 2 * 10 ** 9:
         raise RuntimeError('return data cannot be sent')
     return player_dicts
@@ -177,6 +189,7 @@ def etl_player_data(year):
     rows['Player'].extend(parsed_data)
     load(rows)
 
-# etl_player_data('2003')
+
+# etl_player_data('2012')
 # etl_player_data('2004')
 # etl_player_data('2005')

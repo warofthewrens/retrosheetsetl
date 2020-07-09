@@ -1,0 +1,216 @@
+SGDClassifier
+
+Accuracy 56.96
+
+[[122 194]
+ [122 252]]
+Precision: 0.5650224215246636
+Recall: 0.6737967914438503
+
+Cross validation
+Scores: [0.56647399 0.49710983 0.53488372 0.55813953]
+Mean: 0.5391517677107138
+Standard Deviation: 0.026892285530939117
+
+Test Data
+correct 98
+incorrect 81
+true positives 84
+true negatives 14
+false positives 68
+false negatives 13
+
+Feature Importance
+RpERA_diff  0.034   +/- 0.011
+OPS_diff  0.030   +/- 0.016
+relief_pct_diff  0.027   +/- 0.011
+AVG_diff  0.017   +/- 0.009
+exp_win_pct_diff  0.011   +/- 0.010
+SpERA_diff  0.001   +/- 0.007
+win_pct_diff  -0.001   +/- 0.008
+
+RandomForestClassifier
+
+Accuracy 98.12
+
+[[122 194]
+ [145 229]]
+Precision: 0.541371158392435
+Recall: 0.6122994652406417
+
+Cross validation
+Scores: [0.42196532 0.49132948 0.48255814 0.50581395]
+Mean: 0.4754167226777793
+Standard Deviation: 0.03195801927762262
+
+Test Data
+correct 91
+incorrect 88
+true positives 56
+true negatives 35
+false positives 47
+false negatives 41
+
+Feature Importance
+SpERA_diff  0.236   +/- 0.011
+relief_pct_diff  0.103   +/- 0.010
+RpERA_diff  0.057   +/- 0.007
+AVG_diff  0.051   +/- 0.006
+exp_win_pct_diff  0.030   +/- 0.005
+OPS_diff  0.027   +/- 0.005
+win_pct_diff  0.025   +/- 0.005
+
+LogisticRegression
+
+Accuracy 56.09
+
+[[104 212]
+ [100 274]]
+Precision: 0.5637860082304527
+Recall: 0.732620320855615
+
+Cross validation
+Scores: [0.53179191 0.54913295 0.51744186 0.59883721]
+Mean: 0.5493009813146927
+Standard Deviation: 0.030722293880403793
+
+Test Data
+correct 91
+incorrect 88
+true positives 61
+true negatives 30
+false positives 52
+false negatives 36
+
+Feature Importance
+RpERA_diff  0.028   +/- 0.014
+relief_pct_diff  0.019   +/- 0.013
+OPS_diff  0.018   +/- 0.013
+AVG_diff  0.006   +/- 0.008
+exp_win_pct_diff  0.004   +/- 0.009
+SpERA_diff  -0.000   +/- 0.006
+win_pct_diff  -0.001   +/- 0.007
+
+KNeighborsClassifier
+
+Accuracy 79.42
+
+[[132 184]
+ [174 200]]
+Precision: 0.5208333333333334
+Recall: 0.5347593582887701
+
+Cross validation
+Scores: [0.5433526  0.47976879 0.49418605 0.5       ]
+Mean: 0.5043268584487162
+Standard Deviation: 0.02370477420684257
+
+Test Data
+correct 89
+incorrect 90
+true positives 51
+true negatives 38
+false positives 44
+false negatives 46
+
+Feature Importance
+relief_pct_diff  0.131   +/- 0.015
+SpERA_diff  0.122   +/- 0.014
+RpERA_diff  0.120   +/- 0.014
+AVG_diff  0.109   +/- 0.013
+exp_win_pct_diff  0.107   +/- 0.013
+win_pct_diff  0.101   +/- 0.014
+OPS_diff  0.082   +/- 0.016
+
+GaussianNB
+
+Accuracy 55.36
+
+[[133 183]
+ [145 229]]
+Precision: 0.5558252427184466
+Recall: 0.6122994652406417
+
+Cross validation
+Scores: [0.53179191 0.54913295 0.52325581 0.48837209]
+Mean: 0.5231381906170184
+Standard Deviation: 0.022132044660893982
+
+Test Data
+correct 109
+incorrect 70
+true positives 70
+true negatives 39
+false positives 43
+false negatives 27
+
+Feature Importance
+RpERA_diff  0.016   +/- 0.010
+relief_pct_diff  0.012   +/- 0.010
+OPS_diff  0.010   +/- 0.006
+AVG_diff  0.007   +/- 0.006
+SpERA_diff  0.004   +/- 0.005
+win_pct_diff  0.003   +/- 0.011
+exp_win_pct_diff  0.001   +/- 0.010
+
+Perceptron
+
+Accuracy 54.49
+
+[[115 201]
+ [128 246]]
+Precision: 0.5503355704697986
+Recall: 0.6577540106951871
+
+Cross validation
+Scores: [0.50289017 0.55491329 0.50581395 0.56395349]
+Mean: 0.5318927275171395
+Standard Deviation: 0.02774477204841647
+
+Test Data
+correct 92
+incorrect 87
+true positives 59
+true negatives 33
+false positives 49
+false negatives 38
+
+Feature Importance
+relief_pct_diff  0.023   +/- 0.014
+OPS_diff  0.019   +/- 0.019
+RpERA_diff  0.008   +/- 0.004
+AVG_diff  0.004   +/- 0.011
+exp_win_pct_diff  0.004   +/- 0.004
+win_pct_diff  0.003   +/- 0.006
+SpERA_diff  0.003   +/- 0.008
+
+DecisionTreeClassifier
+
+Accuracy 98.12
+
+[[139 177]
+ [188 186]]
+Precision: 0.512396694214876
+Recall: 0.49732620320855614
+
+Cross validation
+Scores: [0.46820809 0.48554913 0.51744186 0.52325581]
+Mean: 0.4986137249630327
+Standard Deviation: 0.022676625008883185
+
+Test Data
+correct 87
+incorrect 92
+true positives 45
+true negatives 42
+false positives 40
+false negatives 52
+
+Feature Importance
+SpERA_diff  0.343   +/- 0.018
+AVG_diff  0.269   +/- 0.015
+relief_pct_diff  0.267   +/- 0.013
+RpERA_diff  0.249   +/- 0.011
+exp_win_pct_diff  0.177   +/- 0.011
+win_pct_diff  0.091   +/- 0.006
+OPS_diff  0.058   +/- 0.006

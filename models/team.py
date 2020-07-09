@@ -31,6 +31,7 @@ class Team(BASE):
     SB = Column(INTEGER(3))
     CS = Column(INTEGER(3))
     BB = Column(INTEGER(3))
+    IBB = Column(INTEGER(3))
     SO = Column(INTEGER(3))
     HBP = Column(INTEGER(3))
     SF = Column(INTEGER(3))
@@ -39,6 +40,8 @@ class Team(BASE):
     OBP = Column(FLOAT(5))
     SLG = Column(FLOAT(5))
     OPS = Column(FLOAT(5))
+    wOBA = Column(FLOAT(5))
+    wRAA = Column(FLOAT(5))
     BF = Column(INTEGER(4))
     IP = Column(FLOAT(5))
     Ha = Column(INTEGER(4))
@@ -54,6 +57,7 @@ class Team(BASE):
     ER = Column(INTEGER(3))
     RAA = Column(FLOAT(4))
     ERA = Column(FLOAT(4))
+    FIP = Column(FLOAT(5))
     SpIP = Column(FLOAT(5))
     RpIP = Column(FLOAT(5))
     SpER = Column(INTEGER(4))
@@ -62,6 +66,7 @@ class Team(BASE):
     RpTR = Column(INTEGER(4))
     SpERA = Column(FLOAT(5))
     RpERA = Column(FLOAT(5))
+    RpFIP = Column(FLOAT(5))
 
 
 

@@ -1,12 +1,15 @@
+import math
 import numpy as np
 
 import pandas as pd
 
 import seaborn as sns
+import tensorflow as tf
 from matplotlib import pyplot as plt
 from matplotlib import style
 
 from sklearn import linear_model
+
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import Perceptron
@@ -20,6 +23,13 @@ from sklearn.metrics import confusion_matrix
 from sklearn.metrics import precision_score, recall_score
 from sklearn.model_selection import cross_val_score
 from sklearn import preprocessing
+from sklearn.inspection import permutation_importance
+
+from tensorflow.keras import losses
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense
+from tensorflow.keras import optimizers
+from tensorflow.keras import backend as K
 
 from models.sqla_utils import ENGINE
 from models.sqla_utils import PLAYOFF_ENGINE
@@ -35,11 +45,14 @@ rthome.AVG - rtaway.AVG as AVG_diff,
 rthome.OPS - rtaway.OPS as OPS_diff, 
 rthome.RAA - rtaway.RAA as RAA_diff, 
 rthome.ERA - rtaway.ERA as ERA_diff, 
+rthome.wRAA - rthome.wRAA as wRAA_diff,
+sphome.FIP - spaway.FIP as FIP_diff,
+rthome.RpFIP - rtaway.RpFIP as RpFIP_diff,
 (rthome.RpIP/(rthome.SpIP + rthome.RpIP)) - (rtaway.RpIP/(rtaway.SpIP + rtaway.RpIP)) as relief_pct_diff, 
 rthome.RpERA - rtaway.RpERA as RpERA_diff,
 sphome.ERA - spaway.ERA as SpERA_diff, 
 (pg.home_team = pg.winning_team) as home_team_won
-from playoffs.game pg
+from retrosheet.game pg
 join retrosheet.team rthome
 on rthome.year = pg.year and((rthome.team = pg.winning_team) or (rthome.team = pg.losing_team))
 join retrosheet.team rtaway
@@ -48,7 +61,7 @@ join retrosheet.player sphome
 on sphome.player_id = pg.starting_pitcher_home and sphome.year = pg.year and sphome.team = pg.home_team
 join retrosheet.player spaway
 on spaway.player_id = pg.starting_pitcher_away and spaway.year = pg.year and spaway.team = pg.away_team
-where pg.year < 2015 and rthome.team = pg.home_team and rtaway.team = pg.away_team;'''
+where rthome.team = pg.home_team and rtaway.team = pg.away_team;'''
 
 diff_test = '''select pg.home_team, pg.away_team, pg.year, 
 rthome.win_pct - rtaway.win_pct as win_pct_diff,
@@ -61,6 +74,9 @@ rthome.AVG - rtaway.AVG as AVG_diff,
 rthome.OPS - rtaway.OPS as OPS_diff, 
 rthome.RAA - rtaway.RAA as RAA_diff, 
 rthome.ERA - rtaway.ERA as ERA_diff, 
+rthome.wRAA - rthome.wRAA as wRAA_diff,
+sphome.FIP - spaway.FIP as FIP_diff,
+rthome.RpFIP - rtaway.RpFIP as RpFIP_diff,
 (rthome.RpIP/(rthome.SpIP + rthome.RpIP)) - (rtaway.RpIP/(rtaway.SpIP + rtaway.RpIP)) as relief_pct_diff, 
 rthome.RpERA - rtaway.RpERA as RpERA_diff,
 sphome.ERA - spaway.ERA as SpERA_diff, 
@@ -74,7 +90,7 @@ join retrosheet.player sphome
 on sphome.player_id = pg.starting_pitcher_home and sphome.year = pg.year and sphome.team = pg.home_team
 join retrosheet.player spaway
 on spaway.player_id = pg.starting_pitcher_away and spaway.year = pg.year and spaway.team = pg.away_team
-where pg.year >= 2015 and rthome.team = pg.home_team and rtaway.team = pg.away_team;'''
+where rthome.team = pg.home_team and rtaway.team = pg.away_team;'''
 
 train_query = '''
 select pg.home_team, pg.away_team, pg.year, 
@@ -103,12 +119,12 @@ rtaway.ERA as away_ERA,
 (rtaway.RpIP/(rtaway.SpIP + rtaway.RpIP)) as away_relief_pct, 
 rtaway.RpERA as away_RpERA, 
 (pg.home_team = pg.winning_team) as home_team_won
-from playoffs.game pg
+from retrosheet.game pg
 join retrosheet.team rthome
 on rthome.year = pg.year and((rthome.team = pg.winning_team) or (rthome.team = pg.losing_team))
 join retrosheet.team rtaway
 on rtaway.year = pg.year and (rtaway.team = pg.winning_team or rtaway.team = pg.losing_team)
-where pg.year < 2015 and rthome.team = pg.home_team and rtaway.team = pg.away_team;
+where rthome.team = pg.home_team and rtaway.team = pg.away_team;
 '''
 
 
@@ -144,7 +160,7 @@ join retrosheet.team rthome
 on rthome.year = pg.year and((rthome.team = pg.winning_team) or (rthome.team = pg.losing_team))
 join retrosheet.team rtaway
 on rtaway.year = pg.year and (rtaway.team = pg.winning_team or rtaway.team = pg.losing_team)
-where pg.year >= 2015 and rthome.team = pg.home_team and rtaway.team = pg.away_team;'''
+where rthome.team = pg.home_team and rtaway.team = pg.away_team;'''
 
 # playoff_train_query = '''select * from game where year < 2010'''
 # playoff_test_query = '''select * from game where year >= 2010'''
@@ -169,301 +185,204 @@ test_df = pd.read_sql_query(
 #     con=PLAYOFF_ENGINE
 # )
 
+i = 0
+def matthews_correlation(y_true, y_pred):
+    y_pred_pos = K.round(K.clip(y_pred, -1, 1))
+    y_pos = K.round(K.clip(y_true, -1, 1))
+
+    correct = K.equal(y_pos, y_pred_pos)
+    return K.mean(correct)
+    
+
+batch_size = 200
+
 def plot_win_pct():
     game_winner = 'Winning Team'
     game_loser = 'Losing Team'
-    fig, axes = plt.subplots(nrows=1, ncols=4, figsize=(20,10))
-    home_team_won = train_df[train_df['home_team_won'] == 1]
-    home_team_lost = train_df[train_df['home_team_won'] == 0]
+    fig, axes = plt.subplots(nrows=1, ncols=1, figsize=(20,10))
+    home_team_won = test_df[test_df['home_team_won'] == 1]
+    home_team_lost = test_df[test_df['home_team_won'] == 0]
     print(home_team_won)
     print(home_team_lost)
     ax = sns.distplot(home_team_won.win_pct_diff, 
-    bins = 40, label=game_winner, ax = axes[0], kde = False)
+    bins = 40, label=game_winner, ax = axes, kde = False)
     ax = sns.distplot(home_team_lost.win_pct_diff, 
-    bins = 40, label=game_loser, ax = axes[0], kde = False)
+    bins = 40, label=game_loser, ax = axes, kde = False)
     ax.legend()
     ax.set_title('Winning Percentage')
-    ax = sns.distplot(home_team_won.OPS_diff, 
-    bins = 40, label=game_winner, ax = axes[1], kde = False)
-    ax = sns.distplot(home_team_lost.OPS_diff, 
-    bins = 40, label=game_loser, ax = axes[1], kde = False)
-    ax.legend()
-    ax.set_title('Expected Winning Percentage')
-    ax = sns.distplot(home_team_won.SpERA_diff, 
-    bins = 40, label=game_winner, ax = axes[2], kde = False)
-    ax = sns.distplot(home_team_lost.SpERA_diff, 
-    bins = 40, label=game_loser, ax = axes[2], kde = False)
-    ax.legend()
-    ax.set_title('OPS')
-    ax = sns.countplot(x='home_team_won', data=train_df, ax=axes[3])
-    ax.invert_xaxis()
+    # ax = sns.distplot(home_team_won.OPS_diff, 
+    # bins = 40, label=game_winner, ax = axes[1], kde = False)
+    # ax = sns.distplot(home_team_lost.OPS_diff, 
+    # bins = 40, label=game_loser, ax = axes[1], kde = False)
+    # ax.legend()
+    # ax.set_title('OPS')
+    # ax = sns.distplot(home_team_won.SpERA_diff, 
+    # bins = 40, label=game_winner, ax = axes[2], kde = False)
+    # ax = sns.distplot(home_team_lost.SpERA_diff, 
+    # bins = 40, label=game_loser, ax = axes[2], kde = False)
+    # ax.legend()
+    # ax.set_title('Starting Pitcher ERA')
+    # ax = sns.countplot(x='home_team_won', data=train_df, ax=axes[3])
+    # ax.invert_xaxis()
     
     plt.show()
 
+def permutation_importance_model(model, X_train, Y_train):
+    print()
+    print('Feature Importance')
+    r = permutation_importance(model, X_train, Y_train,
+                           n_repeats=50,
+                           random_state=0)
+
+    for i in r.importances_mean.argsort()[::-1]:
+        print(f"{X_train.columns[i] :<8}  "
+                f"{r.importances_mean[i] :.3f}  "
+                f" +/- {r.importances_std[i]:.3f}")
+
+def accuracy(model, X_train, Y_train):
+    print()
+    print(type(model).__name__)
+    print()
+    accuracy = round(model.score(X_train, Y_train) * 100, 2)
+    print('Accuracy', accuracy)
+    return accuracy
+
+def hinge_validation(model, X_train, Y_train, Y_pred):
+
+def cross_validation(model, X_train, Y_train, Y_pred):
+    Y_test = test_df['home_team_won']
+    # Y_test.replace(0, -1, inplace=True)
+    print()
+    predictions = cross_val_predict(model, X_train, Y_train, cv=3)
+    print(confusion_matrix(Y_train, predictions))
+
+    print("Precision:", precision_score(Y_train, predictions))
+    print("Recall:",recall_score(Y_train, predictions))
+    print()
+    print('Cross validation')
+    scores = cross_val_score(model, X_train, Y_train, cv=4, scoring = "accuracy")
+    print("Scores:", scores)
+    print("Mean:", scores.mean())
+    print("Standard Deviation:", scores.std())
+    print()
+    print('Test Data')
+    tp = 0
+    fp = 0
+    fn = 0
+    tn = 0
+    for i in range(len(Y_pred)):
+        pred = Y_pred[i]
+        test = Y_test[i]
+        print('pred', pred, 'test', test)
+        if pred == 1 and test == pred:
+            tp += 1
+        elif pred == 1 and test != pred:
+            fp += 1
+        elif pred == 0 and test != pred:
+            fn += 1
+        elif pred == 0 and test == pred:
+            tn += 1
+    print('correct', tp + tn)
+    print('incorrect', fp + fn)
+    print('true positives', tp)
+    print('true negatives', tn)
+    print('false positives', fp)
+    print('false negatives', fn)
+
+def build_model(model, X_train, Y_train, X_test):
+    model.fit(X_train, Y_train)
+    Y_pred = model.predict(X_test)
+    accuracy(model, X_train, Y_train)
+    cross_validation(model, X_train, Y_train, Y_pred)
+    permutation_importance_model(model, X_train, Y_train)
+
+def calculate_spe(y):
+  return int(math.ceil((1. * y) / batch_size))
+
 def main():
     # train_df.info()
-    plot_win_pct()
-    X_train = train_df.drop('home_team', axis=1).drop('away_team', axis=1).drop('year', axis=1).drop('home_team_won', axis=1).drop('CS_diff', axis=1).drop('RAA_diff', axis=1).drop('ERA_diff', axis=1).drop('SF_diff', axis=1).drop('SB_diff', axis=1).drop('SH_diff', axis=1)
+    #plot_win_pct()
+    X_train = train_df.drop('home_team', axis=1).drop('away_team', axis=1).drop('year', axis=1).drop('home_team_won', axis=1).drop('CS_diff', axis=1).drop('RAA_diff', axis=1).drop('ERA_diff', axis=1).drop('SF_diff', axis=1).drop('SB_diff', axis=1).drop('SH_diff', axis=1).drop('OPS_diff', axis=1).drop('RpERA_diff', axis=1).drop('SpERA_diff', axis=1)
+    #X_train = train_df.drop('home_team', axis=1).drop('away_team', axis=1).drop('year', axis=1).drop('home_team_won', axis=1)
     Y_train = train_df['home_team_won']
-    X_test = test_df.drop('home_team', axis=1).drop('away_team', axis=1).drop('year', axis=1).drop('home_team_won', axis=1).drop('CS_diff', axis=1).drop('RAA_diff', axis=1).drop('ERA_diff', axis=1).drop('SF_diff', axis=1).drop('SB_diff', axis=1).drop('SH_diff', axis=1)
-    Y_test = test_df['home_team_won']
+    X_test = test_df.drop('home_team', axis=1).drop('away_team', axis=1).drop('year', axis=1).drop('home_team_won', axis=1).drop('CS_diff', axis=1).drop('RAA_diff', axis=1).drop('ERA_diff', axis=1).drop('SF_diff', axis=1).drop('SB_diff', axis=1).drop('SH_diff', axis=1).drop('OPS_diff', axis=1).drop('RpERA_diff', axis=1).drop('SpERA_diff', axis=1)
+    #X_test = test_df.drop('home_team', axis=1).drop('away_team', axis=1).drop('year', axis=1).drop('home_team_won', axis=1)
     scaler = preprocessing.StandardScaler().fit(X_train)
-    print(scaler.mean_)
-    print(scaler.scale_)
-    X_train = scaler.transform(X_train)
-    X_test = scaler.transform(X_test)
+    columns = X_train.columns
+    X_train = pd.DataFrame(scaler.transform(X_train), columns=columns)
+    X_test = pd.DataFrame(scaler.transform(X_test), columns=columns)
+    Y_test = test_df['home_team_won']
+    print(Y_train)
+    print(type(Y_train))
+    Y_train.replace(0, -1, inplace=True)
+    Y_test.replace(0, -1, inplace=True)
+
+    steps_per_epoch = calculate_spe(X_train.size)
 
     # Stochastic Gradient Descent
-    sgd = linear_model.SGDClassifier(max_iter=1000, tol=None)
-    sgd.fit(X_train, Y_train)
-    Y_pred = sgd.predict(X_test)
-    sgd.score(X_train, Y_train)
-
-    acc_sgd = round(sgd.score(X_train, Y_train) * 100, 2)
-    print(acc_sgd)
-    predictions = cross_val_predict(sgd, X_train, Y_train, cv=3)
-    print(confusion_matrix(Y_train, predictions))
-
-    print("Precision:", precision_score(Y_train, predictions))
-    print("Recall:",recall_score(Y_train, predictions))
-    scores = cross_val_score(sgd, X_train, Y_train, cv=4, scoring = "accuracy")
-    print("Scores:", scores)
-    print("Mean:", scores.mean())
-    print("Standard Deviation:", scores.std())
-    tp = 0
-    fp = 0
-    fn = 0
-    tn = 0
-    for i in range(len(Y_pred)):
-        pred = Y_pred[i]
-        test = Y_test[i]
-        if pred == 1 and pred == test:
-            tp += 1
-        elif pred == 1 and pred != test:
-            fp += 1
-        elif pred == 0 and pred != test:
-            fn += 1
-        elif pred == 0 and pred == test:
-            tn += 1
-    print('correct', tp + tn)
-    print('incorrect', fp + fn)
-    print('true positives', tp)
-    print('true negatives', tn)
-    print('false positives', fp)
-    print('false negatives', fn)
+    build_model(linear_model.SGDClassifier(max_iter=1000, tol=None), X_train, Y_train, X_test)
 
     # Random Forest
-    random_forest = RandomForestClassifier(n_estimators=100, oob_score=True)
-    random_forest.fit(X_train, Y_train)
-
-    Y_pred = random_forest.predict(X_test)
-    Y_test = Y_test.to_numpy()
-    pred_win = Y_pred == 1
-    test_win = Y_test == 1
-    wins = np.where(pred_win & test_win)
-    sum = (Y_pred * Y_test)
-    tp = 0
-    fp = 0
-    fn = 0
-    tn = 0
-    for i in range(len(Y_pred)):
-        pred = Y_pred[i]
-        test = Y_test[i]
-        if pred == 1 and pred == test:
-            tp += 1
-        elif pred == 1 and pred != test:
-            fp += 1
-        elif pred == 0 and pred != test:
-            fn += 1
-        elif pred == 0 and pred == test:
-            tn += 1
-    print('correct', tp + tn)
-    print('incorrect', fp + fn)
-    print('true positives', tp)
-    print('true negatives', tn)
-    print('false positives', fp)
-    print('false negatives', fn)
-    random_forest.score(X_train, Y_train)
-    acc_random_forest = round(random_forest.score(X_train, Y_train) * 100, 2)
-
-    # importances = pd.DataFrame({'feature':X_train.columns,'importance':np.round(random_forest.feature_importances_,3)})
-    # importances = importances.sort_values('importance',ascending=False).set_index('feature')
-
-    print("oob score:", round(random_forest.oob_score, 4)*100, "%")
-    print(acc_random_forest)
+    build_model(RandomForestClassifier(n_estimators=10), X_train, Y_train, X_test)
+  
     # Logistic Regression
-    logreg = LogisticRegression(max_iter=10000)
-    logreg.fit(X_train, Y_train)
+    build_model(LogisticRegression(max_iter=10000), X_train, Y_train, X_test)
 
-    Y_pred = logreg.predict(X_test)
-
-    acc_log = round(logreg.score(X_train, Y_train) * 100, 2)
-    print(acc_log)
-
-    predictions = cross_val_predict(logreg, X_train, Y_train, cv=3)
-
-    print(confusion_matrix(Y_train, predictions))
-
-    print("Precision:", precision_score(Y_train, predictions))
-    print("Recall:",recall_score(Y_train, predictions))
-    scores = cross_val_score(logreg, X_train, Y_train, cv=4, scoring = "accuracy")
-    print("Scores:", scores)
-    print("Mean:", scores.mean())
-    print("Standard Deviation:", scores.std())
-    tp = 0
-    fp = 0
-    fn = 0
-    tn = 0
-    for i in range(len(Y_pred)):
-        pred = Y_pred[i]
-        test = Y_test[i]
-        if pred == 1 and pred == test:
-            tp += 1
-        elif pred == 1 and pred != test:
-            fp += 1
-        elif pred == 0 and pred != test:
-            fn += 1
-        elif pred == 0 and pred == test:
-            tn += 1
-    print('correct', tp + tn)
-    print('incorrect', fp + fn)
-    print('true positives', tp)
-    print('true negatives', tn)
-    print('false positives', fp)
-    print('false negatives', fn)
     #KNN 
-    knn = KNeighborsClassifier(n_neighbors = 3) 
-    knn.fit(X_train, Y_train)  
-    Y_pred = knn.predict(X_test)  
-    acc_knn = round(knn.score(X_train, Y_train) * 100, 2)
-    print()
-    print('KNN', acc_knn)
-
-    predictions = cross_val_predict(knn, X_train, Y_train, cv=10)
-
-    print(confusion_matrix(Y_train, predictions))
-
-    print("Precision:", precision_score(Y_train, predictions))
-    print("Recall:",recall_score(Y_train, predictions))
-    scores = cross_val_score(knn, X_train, Y_train, cv=10, scoring = "accuracy")
-    print("Scores:", scores)
-    print("Mean:", scores.mean())
-    print("Standard Deviation:", scores.std())
-    tp = 0
-    fp = 0
-    fn = 0
-    tn = 0
-    for i in range(len(Y_pred)):
-        pred = Y_pred[i]
-        test = Y_test[i]
-        if pred == 1 and pred == test:
-            tp += 1
-        elif pred == 1 and pred != test:
-            fp += 1
-        elif pred == 0 and pred != test:
-            fn += 1
-        elif pred == 0 and pred == test:
-            tn += 1
-    print('correct', tp + tn)
-    print('incorrect', fp + fn)
-    print('true positives', tp)
-    print('true negatives', tn)
-    print('false positives', fp)
-    print('false negatives', fn)
+    # build_model(KNeighborsClassifier(n_neighbors = 3), X_train, Y_train, X_test)
 
     # Gaussian
-    gaussian = GaussianNB() 
-    gaussian.fit(X_train, Y_train)  
-    Y_pred = gaussian.predict(X_test)  
-    acc_gaussian = round(gaussian.score(X_train, Y_train) * 100, 2)
-    print()
-    print('gaussian', acc_gaussian)
-
-    predictions = cross_val_predict(gaussian, X_train, Y_train, cv=4)
-
-    print(confusion_matrix(Y_train, predictions))
-
-    print("Precision:", precision_score(Y_train, predictions))
-    print("Recall:",recall_score(Y_train, predictions))
-    scores = cross_val_score(gaussian, X_train, Y_train, cv=4, scoring = "accuracy")
-    print("Scores:", scores)
-    print("Mean:", scores.mean())
-    print("Standard Deviation:", scores.std())
-    tp = 0
-    fp = 0
-    fn = 0
-    tn = 0
-    for i in range(len(Y_pred)):
-        pred = Y_pred[i]
-        test = Y_test[i]
-        if pred == 1 and pred == test:
-            tp += 1
-        elif pred == 1 and pred != test:
-            fp += 1
-        elif pred == 0 and pred != test:
-            fn += 1
-        elif pred == 0 and pred == test:
-            tn += 1
-    print('correct', tp + tn)
-    print('incorrect', fp + fn)
-    print('true positives', tp)
-    print('true negatives', tn)
-    print('false positives', fp)
-    print('false negatives', fn)
+    gaussian = GaussianNB()
+    build_model(gaussian, X_train, Y_train, X_test)
+    cross_val_score(gaussian, X_train, Y_train, cv=5, scoring='accuracy')
 
     #Perceptron
-    perceptron = Perceptron(max_iter=10000)
-    perceptron.fit(X_train, Y_train)
-
-    Y_pred = perceptron.predict(X_test)
-
-    acc_perceptron = round(perceptron.score(X_train, Y_train) * 100, 2)
-    print('Perceptron', acc_perceptron)
-
-    # #Linear Support Vector machine
-    # linear_svc = LinearSVC(max_iter=10000)
-    # linear_svc.fit(X_train, Y_train)
-
-    # Y_pred = linear_svc.predict(X_test)
-
-    # acc_linear_svc = round(linear_svc.score(X_train, Y_train) * 100, 2)
-    # print()
-    # print('Linear Support Vector Machine', acc_linear_svc)
-
-    # predictions = cross_val_predict(linear_svc, X_train, Y_train, cv=3)
-
-    # print(confusion_matrix(Y_train, predictions))
-
-    # print("Precision:", precision_score(Y_train, predictions))
-    # print("Recall:",recall_score(Y_train, predictions))
-    # scores = cross_val_score(linear_svc, X_train, Y_train, cv=4, scoring = "accuracy")
-    # print("Scores:", scores)
-    # print("Mean:", scores.mean())
-    # print("Standard Deviation:", scores.std())
+    build_model(Perceptron(max_iter=10000), X_train, Y_train, X_test)
 
     #Decision Tree
-    decision_tree = DecisionTreeClassifier() 
-    decision_tree.fit(X_train, Y_train)  
-    Y_pred = decision_tree.predict(X_test)  
-    acc_decision_tree = round(decision_tree.score(X_train, Y_train) * 100, 2)
+    build_model(DecisionTreeClassifier(), X_train, Y_train, X_test)
 
-    print('decision tree', acc_decision_tree)
+    model = Sequential()
+    model.add(Dense(50, input_dim=7, activation='relu', kernel_initializer='he_uniform'))
+    model.add(Dense(1, activation='tanh'))
+    opt = optimizers.SGD(lr = 0.01, momentum= 0.9)
+    model.compile(loss='hinge', optimizer = 'Nadam', metrics=['accuracy', 'binary_accuracy', matthews_correlation])
 
-    predictions = cross_val_predict(random_forest, X_train, Y_train, cv=3)
 
-    # results = pd.DataFrame({
-    #     'Model': ['Support Vector Machines', 'KNN', 'Logistic Regression', 
-    #             'Random Forest', 'Naive Bayes', 'Perceptron', 
-    #             'Stochastic Gradient Decent', 
-    #             'Decision Tree'],
-    #     'Score': [acc_linear_svc, acc_knn, acc_log, 
-    #             acc_random_forest, acc_gaussian, acc_perceptron, 
-    #             acc_sgd, acc_decision_tree]})
-    # result_df = results.sort_values(by='Score', ascending=False)
-    # result_df = result_df.set_index('Score')
-    # result_df.head(9)
-    # print(get_team_row('PHI', 2008)['win_pct'])
-    # print(winning_pct)
-# main()
+
+    # model.compile(loss='mean_squared_error', optimizer='Nadam', metrics=['accuracy', 'categorical_accuracy'])
+
+    history = model.fit(X_train, Y_train, epochs=200, verbose=0, validation_split=0.2)
+    Y_pred = model.predict(X_test)
+    cross_validation(model, X_train, Y_train, Y_pred)
+    # print(Y_pred)
+    # for i in len(Y_pred):
+    #     print(Y_pred[i], Y_test[i])
+    # confusion_matrix = tf.math.confusion_matrix(labels=Y_test, predictions=Y_pred).numpy()
+    # print(confusion_matrix)
+    # train_mse = model.evaluate(X_train, Y_train, verbose=0)
+    # print(train_mse)
+    # test_mse = model.evaluate(X_test, Y_test, verbose=0)
+    # print('Train: %.3f, Test: %.3f' % (train_mse, test_mse))
+
+    plt.plot(history.history['matthews_correlation'])
+    plt.plot(history.history['val_matthews_correlation'])
+    plt.title('model accuracy')
+    plt.ylabel('accuracy')
+    plt.xlabel('epoch')
+    plt.legend(['train'], loc='upper left')
+    plt.show()
+    # "Loss"
+    plt.plot(history.history['loss'])
+    plt.plot(history.history['val_loss'])
+    plt.title('model loss')
+    plt.ylabel('loss')
+    plt.xlabel('epoch')
+    plt.legend(['train', 'validation'], loc='upper left')
+    plt.show()
+
+    plt.show()
+
 
 main()
+#plot_win_pct()
