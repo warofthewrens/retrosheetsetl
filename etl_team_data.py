@@ -153,8 +153,6 @@ def etl_team_data(year):
     rows['team'].extend(parsed_data)
     load(rows)
 
-for i in range(1990, 2020):
-    etl_team_data(str(i))
 # etl_team_data('2003')
 # etl_team_data('2004')
 # etl_team_data('2005')

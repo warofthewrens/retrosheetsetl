@@ -141,7 +141,6 @@ def get_game_data(year, pa_data_df, game_data_df, run_data_df, br_data_df):
             print(new_player['player_name'])
         i += 1
 
-
     if len(pickle.dumps(player_dicts)) > 2 * 10 ** 9:
         raise RuntimeError('return data cannot be sent')
     return player_dicts
