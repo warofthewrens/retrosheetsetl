@@ -20,21 +20,23 @@ team_set = set(['ANA', 'ARI', 'ATL', 'BAL', 'BOS', 'CHA', 'CHN', 'CIN', 'CLE', '
 
 rosters = {}
 
-#TODO: return dfs to correct place here
-
-
-# pa_data_df = pd.DataFrame
-# game_data_df = pd.DataFrame
-# run_data_df = pd.DataFrame
-# br_data_df = pd.DataFrame
-
 def get_rosters(year, data_zip):
     for team in team_set:
         rosters.update(extract_roster_team(year + team, data_zip))
     return rosters
 
 def get_player_data(player, team, year, pa_data_df, game_data_df, run_data_df, br_data_df, woba_weights):
-    
+    '''
+    convert a combination of player, plate appearance, run, and game data into team level 
+    @param player - 8 character player id of player
+    @param team - three letter string team code
+    @param year - string of appropriate year
+    @param pa_data_df - dataframe containing every plate appearance from @year
+    @param player_data_df - dataframe containing player statistics
+    @param run_data_df - dataframe containing info for each run scored in @year
+    @param game_data_df - dataframe containing info on every game played in the season
+    @param woba_weights - dataframe containing the woba weight for every batting event
+    '''
     player_dict = {}
     pa_year = pa_data_df.year == int(year)
     game_year = game_data_df.year == int(year)
@@ -73,10 +75,6 @@ def get_player_data(player, team, year, pa_data_df, game_data_df, run_data_df, b
         baserunning = (woba_weights.runSB * player_dict['SB']) + (woba_weights.runCS * player_dict['CS'])
         sabr_PA = (player_dict['AB'] + player_dict['BB'] + player_dict['HBP'] + player_dict['SF'])
         sabr_PA_no_IBB = sabr_PA - player_dict['IBB']
-        # player_dict['wOBA'] = (((woba_weights.wBB * (player_dict['BB'] - player_dict['IBB'])) + (woba_weights.wHBP * player_dict['HBP']) +
-        #                         (woba_weights.w1B * player_dict['S']) + (woba_weights.w2B * player_dict['D']) + (woba_weights.w3B + player_dict['T'])
-        #                         (woba_weights.wHR * player_dict['HR']) + (woba_weights.runSB * player_dict['SB']) + (woba_weights.runCS * player_dict['CS']))/
-        #                         (player_dict['AB'] + player_dict['BB'] - player_dict['IBB'] + player_dict['HBP'] + player_dict['SF']))
         player_dict['wOBA'] = (bb + hbp + hits + baserunning)/sabr_PA_no_IBB
         player_dict['wRAA'] = ((player_dict['wOBA'] - woba_weights.wOBA)/(woba_weights.wOBAScale)) * sabr_PA
     else:
@@ -110,13 +108,23 @@ def get_player_data(player, team, year, pa_data_df, game_data_df, run_data_df, b
     return player_dict
 
 def get_game_data(year, pa_data_df, game_data_df, run_data_df, br_data_df):
+    '''
+    @param year - string of appropriate year
+    @param pa_data_df - dataframe containing every plate appearance from @year
+    @param player_data_df - dataframe containing player statistics
+    @param run_data_df - dataframe containing info for each run scored in @year
+    @param game_data_df - dataframe containing info on every game played in the season
+    @param woba_weights - dataframe containing the woba weight for every batting event
+    '''
     global rosters
     roster_files = set([])
     
+    #scrape fangraphs for wOBA weights
     woba_df = extract_fangraphs()
     woba_weights = woba_df[woba_df.Season == int(year)]
+
+    # 
     data_zip, data_td = extract_game_data_by_year(year)
-    
     f = []
     for (dirpath, dirnames, filenames) in walk(data_td):
         f.extend(filenames)

@@ -9,6 +9,9 @@ player_data_df = pd.read_sql_table(
 
 
 def plot_wraa():
+    '''
+    plots wraa for all players since 1990
+    '''
     plt.xkcd()
     year = player_data_df['year']
     wraa = player_data_df['wRAA']
