@@ -119,11 +119,11 @@ def get_game_data(year, pa_data_df, game_data_df, run_data_df, br_data_df):
     global rosters
     roster_files = set([])
     
-    #scrape fangraphs for wOBA weights
+    # scrape fangraphs for wOBA weights
     woba_df = extract_fangraphs()
     woba_weights = woba_df[woba_df.Season == int(year)]
 
-    # 
+    # extract rosters from retrosheet
     data_zip, data_td = extract_game_data_by_year(year)
     f = []
     for (dirpath, dirnames, filenames) in walk(data_td):
@@ -137,6 +137,7 @@ def get_game_data(year, pa_data_df, game_data_df, run_data_df, br_data_df):
     for team in roster_files:
         rosters.update(extract_roster_team(team, data_zip))
 
+    # Collect player data from plate appearance, game and run data for every player
     players = rosters.keys()
     print(len(players))
     player_dicts = []
@@ -154,6 +155,10 @@ def get_game_data(year, pa_data_df, game_data_df, run_data_df, br_data_df):
     return player_dicts
 
 def load(results):
+    '''
+    load all of the player data into the SQL database
+    @param results - dictionary of lists of dictionaries containing all the individual player rows of data
+    '''
     BASE.metadata.create_all(tables=[x.__table__ for x in MODELS], checkfirst=True)
     session = get_session()
     for model in MODELS:
@@ -169,31 +174,48 @@ def load(results):
     session.commit()
 
 def etl_player_data(year):
+    '''
+    wrapper for all the functions extracting, transforming, and loading player data from the data 
+    already in the SQL database for a given year
+    @param year - string containing the year for which to collect data
+    '''
     rosters = {}
     pa_query = '''select * from plateappearance where year = ''' + year
     print('plate_appearance')
     pa_start = time.time()
+
+    # Extract the plate appearance data
     pa_data_df = pd.concat(list(pd.read_sql_query(
         pa_query,
         con=ENGINE,
         chunksize = 10000
     )))
+
+    # Extract game data
     game_data_df = pd.read_sql_table(
         'game',
         con=ENGINE
     )
+
+    # Extract run data
     run_data_df = pd.read_sql_table(
         'run',
         con=ENGINE
     )
+
+    # Extract base running events
     br_data_df = pd.read_sql_table(
         'baserunningevent',
         con=ENGINE
     )
     print('done bigger chunk', time.time() - pa_start)
+
+    # Transform the data into player data
     parsed_data = get_game_data(year, pa_data_df, game_data_df, run_data_df, br_data_df)
     rows = {table: [] for table in ['Player']}
     rows['Player'].extend(parsed_data)
+
+    # Load data into SQL Database
     load(rows)
 
 

@@ -10,14 +10,21 @@ import sys
 import getopt
 import shutil
 def main():
+    '''
+    Extract, Transform, and Load playoff data from Retrosheet.
+    '''
     years = []
     teams = set([])
+
+    # Get system arguments
     try:
         opts, args = getopt.getopt(sys.argv[1:], 'y:t:')
     except getopt.GetoptError as err:
         print(str(err))
         sys.exit(2)
     print(opts, args)
+
+    # Identify the years and teams to be etl
     for o, a in opts:
         if o == '-y':
             if int(a) < 1920 or int(a) > 2019:
@@ -27,11 +34,14 @@ def main():
         if o == '-t':
             teams.add(a)
     results = {'PlateAppearance': [], 'Game': [], 'Run': [], 'BaseRunningEvent': []}
+
+    # Extract, transform and load each years worth of playoff data
     for year in years:
         games = []
         rosters = {}
         roster_files = set([])
         game_files = set([])
+        # Download Retrosheet data for appropriate playoff year
         data_zip, data_td = extract_playoff_data_by_year(year)
         
         f = []

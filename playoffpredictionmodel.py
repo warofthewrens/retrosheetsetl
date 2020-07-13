@@ -186,7 +186,12 @@ test_df = pd.read_sql_query(
 # )
 
 i = 0
-def matthews_correlation(y_true, y_pred):
+def hinge_validation(y_true, y_pred):
+    '''
+    measure accuracy of hinge model
+    @y_true - the expected data
+    @y_pred - the theoretical data
+    '''
     y_pred_pos = K.round(K.clip(y_pred, -1, 1))
     y_pos = K.round(K.clip(y_true, -1, 1))
 
@@ -197,6 +202,9 @@ def matthews_correlation(y_true, y_pred):
 batch_size = 200
 
 def plot_win_pct():
+    '''
+    plot the predicted data vs some given data
+    '''
     game_winner = 'Winning Team'
     game_loser = 'Losing Team'
     fig, axes = plt.subplots(nrows=1, ncols=1, figsize=(20,10))
@@ -228,6 +236,12 @@ def plot_win_pct():
     plt.show()
 
 def permutation_importance_model(model, X_train, Y_train):
+    '''
+    print the features by importance for the model
+    @param model - the model to measure
+    @param X_train - the given data
+    @param Y_train - the data to predict    
+    '''
     print()
     print('Feature Importance')
     r = permutation_importance(model, X_train, Y_train,
@@ -240,6 +254,12 @@ def permutation_importance_model(model, X_train, Y_train):
                 f" +/- {r.importances_std[i]:.3f}")
 
 def accuracy(model, X_train, Y_train):
+    '''
+    print the model accuracy
+    @param model - the model to measure
+    @param X_train - the given data
+    @param Y_train - the data to predict
+    '''
     print()
     print(type(model).__name__)
     print()
@@ -247,9 +267,16 @@ def accuracy(model, X_train, Y_train):
     print('Accuracy', accuracy)
     return accuracy
 
-def hinge_validation(model, X_train, Y_train, Y_pred):
+
 
 def cross_validation(model, X_train, Y_train, Y_pred):
+    '''
+    print out cross validation and other metrics given a model
+    @param model - the model to measure
+    @param X_train - the given data
+    @param Y_train - the data to predict
+    @param Y_pred - the prediction the model made on the test data
+    '''
     Y_test = test_df['home_team_won']
     # Y_test.replace(0, -1, inplace=True)
     print()
@@ -290,6 +317,13 @@ def cross_validation(model, X_train, Y_train, Y_pred):
     print('false negatives', fn)
 
 def build_model(model, X_train, Y_train, X_test):
+    '''
+    Taking a model and data train the model and predict test data before printing a series of metrics
+    @param model - the model to train
+    @param X_train - the given data
+    @param Y_train - the data to predict
+    @param X_test - the given data for the test
+    '''
     model.fit(X_train, Y_train)
     Y_pred = model.predict(X_test)
     accuracy(model, X_train, Y_train)
@@ -312,8 +346,7 @@ def main():
     X_train = pd.DataFrame(scaler.transform(X_train), columns=columns)
     X_test = pd.DataFrame(scaler.transform(X_test), columns=columns)
     Y_test = test_df['home_team_won']
-    print(Y_train)
-    print(type(Y_train))
+
     Y_train.replace(0, -1, inplace=True)
     Y_test.replace(0, -1, inplace=True)
 
@@ -328,7 +361,7 @@ def main():
     # Logistic Regression
     build_model(LogisticRegression(max_iter=10000), X_train, Y_train, X_test)
 
-    #KNN 
+    # KNN 
     # build_model(KNeighborsClassifier(n_neighbors = 3), X_train, Y_train, X_test)
 
     # Gaussian
@@ -336,37 +369,27 @@ def main():
     build_model(gaussian, X_train, Y_train, X_test)
     cross_val_score(gaussian, X_train, Y_train, cv=5, scoring='accuracy')
 
-    #Perceptron
+    # Perceptron
     build_model(Perceptron(max_iter=10000), X_train, Y_train, X_test)
 
-    #Decision Tree
+    # Decision Tree
     build_model(DecisionTreeClassifier(), X_train, Y_train, X_test)
 
+    # Hinge
     model = Sequential()
     model.add(Dense(50, input_dim=7, activation='relu', kernel_initializer='he_uniform'))
     model.add(Dense(1, activation='tanh'))
     opt = optimizers.SGD(lr = 0.01, momentum= 0.9)
-    model.compile(loss='hinge', optimizer = 'Nadam', metrics=['accuracy', 'binary_accuracy', matthews_correlation])
+    model.compile(loss='hinge', optimizer = 'Nadam', metrics=['accuracy', 'binary_accuracy', hinge_validation])
 
-
-
-    # model.compile(loss='mean_squared_error', optimizer='Nadam', metrics=['accuracy', 'categorical_accuracy'])
 
     history = model.fit(X_train, Y_train, epochs=200, verbose=0, validation_split=0.2)
     Y_pred = model.predict(X_test)
     cross_validation(model, X_train, Y_train, Y_pred)
-    # print(Y_pred)
-    # for i in len(Y_pred):
-    #     print(Y_pred[i], Y_test[i])
-    # confusion_matrix = tf.math.confusion_matrix(labels=Y_test, predictions=Y_pred).numpy()
-    # print(confusion_matrix)
-    # train_mse = model.evaluate(X_train, Y_train, verbose=0)
-    # print(train_mse)
-    # test_mse = model.evaluate(X_test, Y_test, verbose=0)
-    # print('Train: %.3f, Test: %.3f' % (train_mse, test_mse))
 
-    plt.plot(history.history['matthews_correlation'])
-    plt.plot(history.history['val_matthews_correlation'])
+    # plot hinge accuracy
+    plt.plot(history.history['hinge_validation'])
+    plt.plot(history.history['val_hinge_validation'])
     plt.title('model accuracy')
     plt.ylabel('accuracy')
     plt.xlabel('epoch')

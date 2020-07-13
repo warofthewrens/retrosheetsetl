@@ -13,11 +13,13 @@ def create_tables():
     ''' creates all tables in the tables list '''
     PLAYOFFBASE.metadata.create_all(tables=[x.__table__ for x in MODELS], checkfirst=True)
 
-def merge(session, model, row, i):
-    return model(**row)
-
 def load_data(results):
+    '''
+    Load playoff data into the SQL database
+    @param results - a dictionary of lists of dictionaries containing the PlateAppearance, Game, Run, BaseRunningEvent data for the playoffs
+    '''
     print('loading...')
+    # Get the Playoff session
     session = get_session(True)
     for model in MODELS:
         print(model)
@@ -27,14 +29,9 @@ def load_data(results):
         objs = []
         games = set([])
         for row in data:
-            session.merge(merge(session, model, row, i))
+            session.merge(model(**row))
             
             i += 1
-        # results = [executor.submit(merge, session, model, row, i) for row in data]
-        # objs = []
-        # for result in concurrent.futures.as_completed(results):
-        #     objs.append(result.result())
-        # for row in data:
         
     session.commit()
     print('loaded')
