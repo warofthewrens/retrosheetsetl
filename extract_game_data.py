@@ -189,6 +189,7 @@ def etl_player_data(year):
     load(rows)
 
 
-# etl_player_data('2012')
+
+
 # etl_player_data('2004')
 # etl_player_data('2005')
