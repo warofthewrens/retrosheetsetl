@@ -14,6 +14,16 @@ MODELS = [Team]
 
 
 def get_team_data(team, year, pa_data_df, player_data_df, game_data_df, run_data_df, woba_weights):
+    '''
+    convert a combination of player, plate appearance, run, and game data into team level data
+    @param team - three letter string team code
+    @param year - string of appropriate year
+    @param pa_data_df - dataframe containing every plate appearance from @year
+    @param player_data_df - dataframe containing player statistics
+    @param run_data_df - dataframe containing info for each run scored in @year
+    @param game_data_df - dataframe containing info on every game played in the season
+    @param woba_weights - dataframe containing the woba weight for every batting event
+    '''
     team_dict = {}
     game_year = (game_data_df.year == int(year))
     player_year = (player_data_df.year == int(year)) & (player_data_df.team == team)
@@ -98,12 +108,25 @@ def get_team_data(team, year, pa_data_df, player_data_df, game_data_df, run_data
     return team_dict
 
 def get_teams_data(year, pa_data_df, player_data_df, game_data_df, run_data_df):
+    '''
+    Given a year collects statistics for every team
+    @param year - string of appropriate year
+    @param pa_data_df - dataframe containing every plate appearance from @year
+    @param player_data_df - dataframe containing player statistics
+    @param run_data_df - dataframe containing info for each run scored in @year
+    @param game_data_df - dataframe containing info on every game played in the season
+    '''
     team_dicts = []
 
+    #create series of the teams 
     teams = player_data_df[player_data_df.year == int(year)].team.unique()
     print(teams)
+
+    #using fangraphs data retrieve appropriate wOBA weights
     woba_df = extract_fangraphs()
     woba_weights = woba_df[woba_df.Season == int(year)]
+
+    #for each team build and serialize data
     for team in teams:
         team_dict = get_team_data(team, year, pa_data_df, player_data_df, game_data_df, run_data_df, woba_weights)
         new_team = t().dump(team_dict)
@@ -111,6 +134,9 @@ def get_teams_data(year, pa_data_df, player_data_df, game_data_df, run_data_df):
     return team_dicts
 
 def load(results):
+    '''
+    @param results - dictionary of a list of teams to be loaded into the SQL database
+    '''
     BASE.metadata.create_all(tables=[x.__table__ for x in MODELS], checkfirst=True)
     session = get_session()
     for model in MODELS:
@@ -125,7 +151,11 @@ def load(results):
     session.commit()
 
 def etl_team_data(year):
+    '''
+    @param year - string with appropriate year
+    '''
     print(year)
+    # Query the SQL database for every plate apperance
     pa_query = '''
         select * from plateappearance where year =
     ''' + year
@@ -134,16 +164,17 @@ def etl_team_data(year):
         con = ENGINE,
         chunksize = 1000
     )))
+    #Player Query
     player_data_df = pd.read_sql_table(
         'player',
         con = ENGINE
     )
-
+    #Game Query
     game_data_df = pd.read_sql_table(
         'game',
         con = ENGINE
     )
-
+    #Run Query
     run_data_df = pd.read_sql_table(
         'run',
         con = ENGINE
@@ -152,7 +183,3 @@ def etl_team_data(year):
     rows = {table: [] for table in ['team']}
     rows['team'].extend(parsed_data)
     load(rows)
-
-# etl_team_data('2003')
-# etl_team_data('2004')
-# etl_team_data('2005')
