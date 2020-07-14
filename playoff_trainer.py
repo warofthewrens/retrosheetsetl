@@ -54,7 +54,7 @@ rthome.RpFIP - rtaway.RpFIP as RpFIP_diff,
 rthome.RpERA - rtaway.RpERA as RpERA_diff,
 sphome.ERA - spaway.ERA as SpERA_diff, 
 (pg.home_team = pg.winning_team) as home_team_won
-from retrosheet.game pg
+from playoffs.game pg
 join retrosheet.team rthome
 on rthome.year = pg.year and((rthome.team = pg.winning_team) or (rthome.team = pg.losing_team))
 join retrosheet.team rtaway
@@ -63,7 +63,8 @@ join retrosheet.player sphome
 on sphome.player_id = pg.starting_pitcher_home and sphome.year = pg.year and sphome.team = pg.home_team
 join retrosheet.player spaway
 on spaway.player_id = pg.starting_pitcher_away and spaway.year = pg.year and spaway.team = pg.away_team
-where rthome.team = pg.home_team and rtaway.team = pg.away_team;'''
+where rthome.team = pg.home_team and rtaway.team = pg.away_team
+and pg.year < 2015;'''
 
 diff_test = '''select pg.home_team, pg.away_team, pg.year, 
 rthome.win_pct - rtaway.win_pct as win_pct_diff,
@@ -92,7 +93,8 @@ join retrosheet.player sphome
 on sphome.player_id = pg.starting_pitcher_home and sphome.year = pg.year and sphome.team = pg.home_team
 join retrosheet.player spaway
 on spaway.player_id = pg.starting_pitcher_away and spaway.year = pg.year and spaway.team = pg.away_team
-where rthome.team = pg.home_team and rtaway.team = pg.away_team;'''
+where rthome.team = pg.home_team and rtaway.team = pg.away_team
+and pg.year >= 2015;'''
 
 train_query = '''
 select pg.home_team, pg.away_team, pg.year, 
@@ -495,10 +497,10 @@ def hyper_parameters(model, X_train, Y_train):
 def main():
     # train_df.info()
     #plot_win_pct()
-    X_train = train_df.drop('home_team', axis=1).drop('away_team', axis=1).drop('year', axis=1).drop('home_team_won', axis=1).drop('CS_diff', axis=1).drop('RAA_diff', axis=1).drop('ERA_diff', axis=1).drop('SF_diff', axis=1).drop('SB_diff', axis=1).drop('SH_diff', axis=1).drop('OPS_diff', axis=1).drop('RpERA_diff', axis=1).drop('SpERA_diff', axis=1).drop('AVG_diff', axis=1).drop('win_pct_diff', axis=1).drop('relief_pct_diff', axis=1).drop('RpFIP_diff', axis=1)
+    X_train = train_df.drop('home_team', axis=1).drop('away_team', axis=1).drop('year', axis=1).drop('home_team_won', axis=1).drop('CS_diff', axis=1).drop('RAA_diff', axis=1).drop('ERA_diff', axis=1).drop('SF_diff', axis=1).drop('SB_diff', axis=1).drop('SH_diff', axis=1).drop('OPS_diff', axis=1).drop('FIP_diff', axis=1).drop('RpFIP_diff', axis=1).drop('exp_win_pct_diff', axis=1).drop('AVG_diff', axis=1)
     #X_train = train_df.drop('home_team', axis=1).drop('away_team', axis=1).drop('year', axis=1).drop('home_team_won', axis=1)
     Y_train = train_df['home_team_won']
-    X_test = test_df.drop('home_team', axis=1).drop('away_team', axis=1).drop('year', axis=1).drop('home_team_won', axis=1).drop('CS_diff', axis=1).drop('RAA_diff', axis=1).drop('ERA_diff', axis=1).drop('SF_diff', axis=1).drop('SB_diff', axis=1).drop('SH_diff', axis=1).drop('OPS_diff', axis=1).drop('RpERA_diff', axis=1).drop('SpERA_diff', axis=1).drop('AVG_diff', axis=1).drop('win_pct_diff', axis=1).drop('relief_pct_diff', axis=1).drop('RpFIP_diff', axis=1)
+    X_test = test_df.drop('home_team', axis=1).drop('away_team', axis=1).drop('year', axis=1).drop('home_team_won', axis=1).drop('CS_diff', axis=1).drop('RAA_diff', axis=1).drop('ERA_diff', axis=1).drop('SF_diff', axis=1).drop('SB_diff', axis=1).drop('SH_diff', axis=1).drop('OPS_diff', axis=1).drop('FIP_diff', axis=1).drop('RpFIP_diff', axis=1).drop('exp_win_pct_diff', axis=1).drop('AVG_diff', axis=1)
     #X_test = test_df.drop('home_team', axis=1).drop('away_team', axis=1).drop('year', axis=1).drop('home_team_won', axis=1)
     scaler = preprocessing.StandardScaler().fit(X_train)
     columns = X_train.columns

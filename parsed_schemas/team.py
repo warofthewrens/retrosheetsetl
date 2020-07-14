@@ -68,3 +68,4 @@ class Team(Schema):
     SpERA = fields.Float()
     RpERA = fields.Float()
     RpFIP = fields.Float()
+    PPFp = fields.Float()

@@ -67,6 +67,7 @@ class Team(BASE):
     SpERA = Column(FLOAT(5))
     RpERA = Column(FLOAT(5))
     RpFIP = Column(FLOAT(5))
+    PPFp = Column(FLOAT(3))
 
 
 

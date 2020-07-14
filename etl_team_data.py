@@ -7,13 +7,48 @@ from models.sqla_utils import ENGINE, BASE, get_session
 from models.team import Team
 from parsed_schemas.team import Team as t
 from extract import extract_roster_team, extract_game_data_by_year
-from extract_fangraphs import extract_fangraphs
+from extract_fangraphs import extract_fangraphs, extract_park_factors
 
 MODELS = [Team]
 
+expand_team = {
+    'ARI' : 'Diamondbacks',
+    'ATL' : 'Braves',
+    'BAL' : 'Orioles',
+    'BOS' : 'Red Sox',
+    'CAL' : 'Angels',
+    'ANA' : 'Angels',
+    'CHA' : 'White Sox',
+    'CHN' : 'Cubs',
+    'CIN' : 'Reds',
+    'CLE' : 'Indians',
+    'COL' : 'Rockies',
+    'DET' : 'Tigers',
+    'FLA' : 'Marlins',
+    'FLO' : 'Marlins',
+    'HOU' : 'Astros',
+    'KCA' : 'Royals',
+    'LAN' : 'Dodgers',
+    'MIL' : 'Brewers',
+    'MIN' : 'Twins',
+    'MIA' : 'Marlins',
+    'MON' : 'Expos',
+    'NYA' : 'Yankees',
+    'NYN' : 'Mets',
+    'OAK' : 'Athletics',
+    'PHI' : 'Phillies',
+    'PIT' : 'Pirates',
+    'SDN' : 'Padres',
+    'SEA' : 'Mariners',
+    'SFN' : 'Giants',
+    'SLN' : 'Cardinals',
+    'TBA' : 'Rays',
+    'TEX' : 'Rangers',
+    'TOR' : 'Blue Jays',
+    'WAS' : 'Nationals'
+}
 
-
-def get_team_data(team, year, pa_data_df, player_data_df, game_data_df, run_data_df, woba_weights):
+def get_team_data(team, year, pa_data_df, player_data_df, game_data_df, run_data_df, woba_weights, pf_weights):
     '''
     convert a combination of player, plate appearance, run, and game data into team level data
     @param team - three letter string team code
@@ -70,8 +105,9 @@ def get_team_data(team, year, pa_data_df, player_data_df, game_data_df, run_data
     baserunning = (woba_weights.runSB * team_dict['SB']) + (woba_weights.runCS * team_dict['CS'])
     sabr_PA = (team_dict['AB'] + team_dict['BB'] + team_dict['HBP'] + team_dict['SF'])
     sabr_PA_no_IBB = sabr_PA - team_dict['IBB']
-    team_dict['wOBA'] = (bb + hbp + hits + baserunning)/sabr_PA_no_IBB
-    team_dict['wRAA'] = ((team_dict['wOBA'] - woba_weights.wOBA)/(woba_weights.wOBAScale)) * sabr_PA
+    team_dict['PPFp'] = (pf_weights['Basic (5yr)'] / 100).item()
+    team_dict['wOBA'] = ((bb + hbp + hits + baserunning)/sabr_PA_no_IBB) * team_dict['PPFp']
+    team_dict['wRAA'] = (((team_dict['wOBA'] - woba_weights.wOBA)/(woba_weights.wOBAScale)) * sabr_PA) 
     team_dict['BF'] = player_data_df[player_year].BF.sum()
     team_dict['IP'] = player_data_df[player_year].IP.sum()
     team_dict['Ha'] = player_data_df[player_year].Ha.sum()
@@ -126,9 +162,12 @@ def get_teams_data(year, pa_data_df, player_data_df, game_data_df, run_data_df):
     woba_df = extract_fangraphs()
     woba_weights = woba_df[woba_df.Season == int(year)]
 
+    pf_df = extract_park_factors(year)
+    
     #for each team build and serialize data
     for team in teams:
-        team_dict = get_team_data(team, year, pa_data_df, player_data_df, game_data_df, run_data_df, woba_weights)
+        pf_weights = pf_df[pf_df.Team == expand_team[team]]
+        team_dict = get_team_data(team, year, pa_data_df, player_data_df, game_data_df, run_data_df, woba_weights, pf_weights)
         new_team = t().dump(team_dict)
         team_dicts.append(new_team)
     return team_dicts
@@ -183,3 +222,6 @@ def etl_team_data(year):
     rows = {table: [] for table in ['team']}
     rows['team'].extend(parsed_data)
     load(rows)
+
+for i in range(1990, 2019):
+    etl_team_data(str(i))
