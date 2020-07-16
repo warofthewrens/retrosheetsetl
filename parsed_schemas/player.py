@@ -8,6 +8,7 @@ class Player(Schema):
     player_name = fields.String()
     team = fields.String()
     year = fields.Integer()
+    GS = fields.Integer()
     PA = fields.Integer()
     AB = fields.Integer()
     S = fields.Integer()

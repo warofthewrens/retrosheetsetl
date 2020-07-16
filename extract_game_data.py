@@ -42,10 +42,13 @@ def get_player_data(player, team, year, pa_data_df, game_data_df, run_data_df, b
     game_year = game_data_df.year == int(year)
     run_year = run_data_df.year == int(year)
     br_year = (br_data_df.year == int(year)) & (br_data_df.running_team == team)
+    infield = set([1, 2, 3, 4, 5, 6])
     team_scored = run_data_df.scoring_team == team
     team_scored_against = run_data_df.conceding_team == team
+    position = (game_data_df.starting_pitcher_home == player) | (game_data_df.starting_catcher_home == player) | (game_data_df.starting_first_home == player) | (game_data_df.starting_second_home == player) | (game_data_df.starting_third_home == player)  | (game_data_df.starting_short_home == player) | (game_data_df.starting_left_home == player) | (game_data_df.starting_right_home == player) | (game_data_df.starting_center_home == player) | (game_data_df.starting_pitcher_away == player) | (game_data_df.starting_catcher_away == player) | (game_data_df.starting_first_away == player) | (game_data_df.starting_second_away == player)| (game_data_df.starting_third_away == player) | (game_data_df.starting_short_away == player) | (game_data_df.starting_left_away == player) | (game_data_df.starting_right_away == player) | (game_data_df.starting_center_away == player)
     batter_team_bool = (pa_data_df.batter_id == player) & (pa_data_df.batter_team == team) 
-    pitcher_team_bool = (pa_data_df.pitcher_id == player) & (pa_data_df.pitcher_team == team) 
+    pitcher_team_bool = (pa_data_df.pitcher_id == player) & (pa_data_df.pitcher_team == team)
+    player_dict['GS'] = game_data_df[position & game_year].year.count()
     player_dict['PA'] = pa_data_df[batter_team_bool & (pa_data_df.pa_flag) & pa_year].pa_flag.count()
     player_dict['AB'] = pa_data_df[batter_team_bool & (pa_data_df.ab_flag) & pa_year].ab_flag.count()
     player_dict['S'] = pa_data_df[batter_team_bool & (pa_data_df.hit_val == 1) & pa_year].hit_val.count()
@@ -88,6 +91,7 @@ def get_player_data(player, team, year, pa_data_df, game_data_df, run_data_df, b
     player_dict['IBBa'] = pa_data_df[pitcher_team_bool & (pa_data_df.event_type == 15) & pa_year].event_type.count()
     player_dict['K'] = pa_data_df[pitcher_team_bool & (pa_data_df.event_type == 3) & pa_year].event_type.count()
     player_dict['HBPa'] = pa_data_df[pitcher_team_bool & (pa_data_df.event_type == 16) & pa_year].event_type.count()
+    player_dict['IFFB'] = pa_data_df[pitcher_team_bool & (pa_data_df.ball_type == 'F') & (pa_data_df.hit_loc in infield) & pa_year].hit_loc.count()
     player_dict['BK'] = pa_data_df[pitcher_team_bool & (pa_data_df.event_type == 11) & pa_year].event_type.count()
     player_dict['W'] = game_data_df[(player == game_data_df.winning_pitcher) & (team == game_data_df.winning_team) & game_year].winning_team.count()
     player_dict['L'] = game_data_df[(player == game_data_df.losing_pitcher) & (team == game_data_df.losing_team) & game_year].losing_team.count()
@@ -97,7 +101,7 @@ def get_player_data(player, team, year, pa_data_df, game_data_df, run_data_df, b
     if player_dict['IP'] > 0:
         player_dict['RA'] = (player_dict['TR'] / player_dict['IP']) * 9
         player_dict['ERA'] = (player_dict['ER'] / player_dict['IP']) * 9
-        player_dict['FIP'] = (13 * player_dict['HR'] + 3 * player_dict['BB'] - 2 * player_dict['K'])
+        player_dict['FIP'] = (13 * player_dict['HR'] + 3 * player_dict['BB'] - 2 * (player_dict['K'] + player_dict['IFFB']))
     else:
         player_dict['RA'], player_dict['ERA'] = 0, 0
     
@@ -147,7 +151,7 @@ def get_game_data(year, pa_data_df, game_data_df, run_data_df, br_data_df):
         new_player = p().dump(player_dict)
         player_dicts.append(new_player)
         if (i % 25 == 0):
-            print(new_player['player_name'])
+            print(new_player)
         i += 1
 
     if len(pickle.dumps(player_dicts)) > 2 * 10 ** 9:
@@ -165,12 +169,15 @@ def load(results):
         data = results[model.__tablename__]
         i = 0
         # Here is where we convert directly the dictionary output of our marshmallow schema into sqlalchemy
+        objs = []
         for row in data:
             if i % 1000 == 0:
                 print('loading...', i)
             i+=1
             if row['AB'] > 0 or row['IP'] > 0:
-                session.merge(model(**row))
+                objs.append(model(**row))
+        
+        session.bulk_save_objects(objs)
     session.commit()
 
 def etl_player_data(year):

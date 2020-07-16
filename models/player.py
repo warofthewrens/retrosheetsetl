@@ -9,6 +9,7 @@ class Player(BASE):
     player_name = Column(VARCHAR(50))
     team = Column(VARCHAR(3), primary_key=True)
     year = Column(INTEGER(4), primary_key=True)
+    GS = Column(INTEGER(3))
     PA = Column(INTEGER(4))
     AB = Column(INTEGER(4))
     S = Column(INTEGER(3))

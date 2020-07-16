@@ -146,7 +146,36 @@ def get_team_data(team, year, pa_data_df, player_data_df, game_data_df, run_data
     team_dict['RpFIP'] = ((13 * relief_hr) + (3 * relief_k) - (2 * relief_bb))/(team_dict['RpIP'])
     return team_dict
 
-def get_teams_data(year, pa_data_df, player_data_df, game_data_df, run_data_df):
+def build_league_stats(year, team_data_df):
+    league_dict = {}
+    league_dict['year'] = year
+    league_dict['H'] = team_data_df.H.sum()
+    league_dict['HR'] = team_data_df.HR.sum()
+    league_dict['BB'] = team_dict_df.BB.sum()
+    league_dict['K'] = team_dict_df.K.sum()
+    league_dict['HBP'] = team_dict_df.HBP.sum()
+    league_dict['IP'] = team_data_df.IP.sum()
+    league_dict['ER'] = team_data_df.ER.sum()
+    league_dict['TR'] = team_data_df.TR.sum()
+    league_dict['SpER'] = team_data_df.SpER.sum()
+    league_dict['SpTR'] = team_data_df.SpTR.sum()
+    league_dict['SpIP'] = team_data_df.SpIP.sum()
+    league_dict['RpER'] = team_data_df.RpER.sum()
+    league_dict['RpTR'] = team_data_df.RpTR.sum()
+    league_dict['RpIP'] = team_data_df.RpIP.sum()
+    league_dict['lgRAA'] = (league_dict['lgTR'] / league_dict['lgIP']) * 9
+    league_dict['lgERA'] = (league_dict['lgER'] / league_dict['lgIP']) * 9
+    league_dict['lgFIP'] = ((13 * league_dict['HR']) + (3 * (league_dict['BB'] + league_dict['HBP']) - (2 * league_dict['K']))/ league_dict['IP']
+    league_dict['lgIFIP'] = ((13 * league_dict['HR']) + (3 * (league_dict['BB'] + league_dict['HBP']) - (2 * (league_dict['K'] + league_dict['IFFB'])))/ league_dict['IP']
+    league_dict['lgSpERA'] = (league_dict['SpER'] / league_dict['SpIP']) * 9
+    league_dict['lgSpRAA'] = (league_dict['SpTR'] / league_dict['SpIP']) * 9
+    league_dict['lgSpFIP'] = (team_data_df.SpFIP * team_data_df.SpIP) / (league_dict['SpIP'])
+    league_dict['lgRpERA'] = (league_dict['RpER'] / league_dict['RpIP']) * 9
+    league_dict['lgRpRAA'] = (league_dict['RpTR'] / league_dict['RpIP']) * 9
+    league_dict['lgRpFIP'] = (team_data_df.RpFIP * team_data_df.RpIP) / (league_dict['RpIP'])
+    
+
+def get_league_data(year, team_data_df):
     '''
     Given a year collects statistics for every team
     @param year - string of appropriate year
@@ -158,15 +187,9 @@ def get_teams_data(year, pa_data_df, player_data_df, game_data_df, run_data_df):
     team_dicts = []
 
     #create series of the teams 
-    teams = player_data_df[player_data_df.year == int(year)].team.unique()
-    print(teams)
+    team_data_df = team_data_df[team_data_df.year == int(year)]
 
-    #using fangraphs data retrieve appropriate wOBA weights
-    woba_df = extract_fangraphs()
-    woba_weights = woba_df[woba_df.Season == int(year)]
-
-    pf_df = extract_park_factors(year)
-    print(pf_df)
+    build_league_stats(team_data_df)
     #for each team build and serialize data
     for team in teams:
         if team == 'TBA' and int(year) <= 2007:
@@ -200,39 +223,19 @@ def load(results):
         session.bulk_save_objects(objs)
     session.commit()
 
-def etl_team_data(year):
+def etl_league_data(year):
     '''
     @param year - string with appropriate year
     '''
     print(year)
-    # Query the SQL database for every plate apperance
-    pa_query = '''
-        select * from plateappearance where year =
-    ''' + year
-    pa_data_df = pd.concat(list(pd.read_sql_query(
-        pa_query,
-        con = ENGINE,
-        chunksize = 1000
-    )))
-    #Player Query
-    player_data_df = pd.read_sql_table(
-        'player',
+    # Query the SQL database for every team
+
+    team_data_df = pd.read_sql_table(
+        'team',
         con = ENGINE
     )
-    #Game Query
-    game_data_df = pd.read_sql_table(
-        'game',
-        con = ENGINE
-    )
-    #Run Query
-    run_data_df = pd.read_sql_table(
-        'run',
-        con = ENGINE
-    )
-    parsed_data = get_teams_data(year, pa_data_df, player_data_df, game_data_df, run_data_df)
+    parsed_data = get_league_data(year, team_data_df)
     rows = {table: [] for table in ['team']}
     rows['team'].extend(parsed_data)
     load(rows)
 
-# for i in range(2007, 2019):
-#     etl_team_data(str(i))

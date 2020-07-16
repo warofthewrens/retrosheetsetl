@@ -9,6 +9,7 @@ import concurrent.futures
 MODELS = [PlateAppearance, Game, Run, BaseRunningEvent]
 
 
+
 def create_tables():
     ''' creates all tables in the tables list '''
     BASE.metadata.create_all(tables=[x.__table__ for x in MODELS], checkfirst=True)

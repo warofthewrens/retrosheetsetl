@@ -52,6 +52,7 @@ class Game(Schema):
     starting_first_away = fields.String()
     starting_second_away = fields.String()
     starting_third_away = fields.String()
+    starting_short_away = fields.String()
     starting_left_away = fields.String()
     starting_center_away = fields.String()
     starting_right_away = fields.String()
@@ -126,6 +127,7 @@ class Game(Schema):
     @pre_dump
     def handle_data(self, game, **kwargs):
         #print(self.context)
+        
         for player in game['lineup']:
             if player['is_home']:
                 game['starting_' + pos_dict[player['field_pos']]+ '_home'] = player['player_id']
@@ -178,7 +180,6 @@ class Game(Schema):
         else:
             game['winning_team'] = game['away_team']
             game['losing_team'] = game['home_team']
-        
         game['innings'] = self.context['inning']
         game['year'] = game['date'].year
         return game

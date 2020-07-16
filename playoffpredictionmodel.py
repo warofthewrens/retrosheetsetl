@@ -508,6 +508,10 @@ def main():
 
     steps_per_epoch = calculate_spe(X_train.size)
 
+    data = [X_train, X_test]
+
+    for dataset in data:
+        dataset.loc[dataset['SpERA_diff']]
     # # Ridge
     # rigde = build_model(linear_model.Ridge(), X_train, Y_train, X_test, True)
 

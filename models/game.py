@@ -43,6 +43,7 @@ class Game(BASE):
     starting_first_away = Column(VARCHAR(8))
     starting_second_away = Column(VARCHAR(8))
     starting_third_away = Column(VARCHAR(8))
+    starting_short_away = Column(VARCHAR(8))
     starting_left_away = Column(VARCHAR(8))
     starting_center_away = Column(VARCHAR(8))
     starting_right_away = Column(VARCHAR(8))
