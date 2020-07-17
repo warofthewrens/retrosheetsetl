@@ -6,6 +6,7 @@ class Team(Schema):
 
     team = fields.String()
     year = fields.Integer()
+    league = fields.String()
     W = fields.Integer()
     L = fields.Integer()
     win_pct = fields.Float()
@@ -48,6 +49,7 @@ class Team(Schema):
     TBa = fields.Integer()
     BBa = fields.Integer()
     IBBa = fields.Integer()
+    IFFB = fields.Integer()
     K = fields.Integer()
     HBPa = fields.Integer()
     BK = fields.Integer()
@@ -66,6 +68,7 @@ class Team(Schema):
     SpTR = fields.Integer()
     RpTR = fields.Integer()
     SpERA = fields.Float()
+    SpFIP = fields.Float()
     RpERA = fields.Float()
     RpFIP = fields.Float()
     PPFp = fields.Float()

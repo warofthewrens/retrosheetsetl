@@ -1,5 +1,5 @@
 from sqlalchemy import Column
-from sqlalchemy.dialects.mysql import MEDIUMINT, INTEGER, TINYINT, SMALLINT, VARCHAR, DATETIME, BOOLEAN, DATE
+from sqlalchemy.dialects.mysql import MEDIUMINT, INTEGER, TINYINT, SMALLINT, VARCHAR, DATETIME, BOOLEAN, DATE, FLOAT
 from models.sqla_utils import BASE
 
 class League(BASE):
@@ -10,7 +10,8 @@ class League(BASE):
     HR = Column(INTEGER(5))
     BB = Column(INTEGER(5))
     K = Column(INTEGER(5))
-    HBP = Columm(INTEGER(5))
+    HBP = Column(INTEGER(5))
+    IFFB = Column(INTEGER(5))
     IP = Column(INTEGER(5))
     ER = Column(INTEGER(5))
     TR = Column(INTEGER(5))
@@ -23,7 +24,9 @@ class League(BASE):
     lgRAA = Column(FLOAT(5))
     lgERA = Column(FLOAT(5))
     lgFIP = Column(FLOAT(5))
-    lgIFIP = Column(FLOAT(5))
+    lgiFIP = Column(FLOAT(5))
+    ciFIP = Column(FLOAT(5))
+    WARadj = Column(FLOAT(5))
     lgSpERA = Column(FLOAT(5))
     lgSpRAA = Column(FLOAT(5))
     lgSpFIP = Column(FLOAT(5))

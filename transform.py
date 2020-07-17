@@ -82,9 +82,9 @@ def modifier(modifier, play, runners_out, state):
         if modifier[0] in set(['G', 'F', 'L', 'P']) and modifier not in set(['FINT', 'FL', 'FO', 'PASS']):
             play['ball_type'] = modifier[0]
             # Hit location
-            location = re.search('[1-9]', modifier)
-            if location:
-                play['hit_loc'] = location.group(0)
+            if len(modifier) > 1:
+                if modifier[1].isdigit():
+                    play['hit_loc'] = modifier[1]
     
     # Foul ball
     if modifier == 'FL':

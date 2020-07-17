@@ -46,9 +46,11 @@ def get_player_data(player, team, year, pa_data_df, game_data_df, run_data_df, b
     team_scored = run_data_df.scoring_team == team
     team_scored_against = run_data_df.conceding_team == team
     position = (game_data_df.starting_pitcher_home == player) | (game_data_df.starting_catcher_home == player) | (game_data_df.starting_first_home == player) | (game_data_df.starting_second_home == player) | (game_data_df.starting_third_home == player)  | (game_data_df.starting_short_home == player) | (game_data_df.starting_left_home == player) | (game_data_df.starting_right_home == player) | (game_data_df.starting_center_home == player) | (game_data_df.starting_pitcher_away == player) | (game_data_df.starting_catcher_away == player) | (game_data_df.starting_first_away == player) | (game_data_df.starting_second_away == player)| (game_data_df.starting_third_away == player) | (game_data_df.starting_short_away == player) | (game_data_df.starting_left_away == player) | (game_data_df.starting_right_away == player) | (game_data_df.starting_center_away == player)
+    infield_fly = (pa_data_df.hit_loc <= 6) & ((pa_data_df.ball_type == 'F') | (pa_data_df.ball_type == 'P'))
     batter_team_bool = (pa_data_df.batter_id == player) & (pa_data_df.batter_team == team) 
     pitcher_team_bool = (pa_data_df.pitcher_id == player) & (pa_data_df.pitcher_team == team)
     player_dict['GS'] = game_data_df[position & game_year].year.count()
+    player_dict['GP'] = len(pa_data_df[(pitcher_team_bool | batter_team_bool) & pa_year].game_id.unique())
     player_dict['PA'] = pa_data_df[batter_team_bool & (pa_data_df.pa_flag) & pa_year].pa_flag.count()
     player_dict['AB'] = pa_data_df[batter_team_bool & (pa_data_df.ab_flag) & pa_year].ab_flag.count()
     player_dict['S'] = pa_data_df[batter_team_bool & (pa_data_df.hit_val == 1) & pa_year].hit_val.count()
@@ -91,7 +93,7 @@ def get_player_data(player, team, year, pa_data_df, game_data_df, run_data_df, b
     player_dict['IBBa'] = pa_data_df[pitcher_team_bool & (pa_data_df.event_type == 15) & pa_year].event_type.count()
     player_dict['K'] = pa_data_df[pitcher_team_bool & (pa_data_df.event_type == 3) & pa_year].event_type.count()
     player_dict['HBPa'] = pa_data_df[pitcher_team_bool & (pa_data_df.event_type == 16) & pa_year].event_type.count()
-    player_dict['IFFB'] = pa_data_df[pitcher_team_bool & (pa_data_df.ball_type == 'F') & (pa_data_df.hit_loc in infield) & pa_year].hit_loc.count()
+    player_dict['IFFB'] = pa_data_df[pitcher_team_bool & infield_fly & pa_year].hit_loc.count()
     player_dict['BK'] = pa_data_df[pitcher_team_bool & (pa_data_df.event_type == 11) & pa_year].event_type.count()
     player_dict['W'] = game_data_df[(player == game_data_df.winning_pitcher) & (team == game_data_df.winning_team) & game_year].winning_team.count()
     player_dict['L'] = game_data_df[(player == game_data_df.losing_pitcher) & (team == game_data_df.losing_team) & game_year].losing_team.count()
@@ -176,6 +178,7 @@ def load(results):
             i+=1
             if row['AB'] > 0 or row['IP'] > 0:
                 objs.append(model(**row))
+                #session.merge(model(**row))
         
         session.bulk_save_objects(objs)
     session.commit()
