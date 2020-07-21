@@ -103,9 +103,10 @@ def get_player_data(player, team, year, pa_data_df, game_data_df, run_data_df, b
     if player_dict['IP'] > 0:
         player_dict['RA'] = (player_dict['TR'] / player_dict['IP']) * 9
         player_dict['ERA'] = (player_dict['ER'] / player_dict['IP']) * 9
-        player_dict['FIP'] = (13 * player_dict['HR'] + 3 * player_dict['BB'] - 2 * (player_dict['K'] + player_dict['IFFB']))
+        player_dict['FIP'] = ((13 * player_dict['HRa'] + (3 * (player_dict['BBa'] + player_dict['HBPa'])) - 2 * (player_dict['K']))) / player_dict['IP']
+        player_dict['iFIP'] = ((13 * player_dict['HRa'] + (3 * (player_dict['BBa'] + player_dict['HBPa'])) - 2 * (player_dict['K'] + player_dict['IFFB']))) / player_dict['IP']
     else:
-        player_dict['RA'], player_dict['ERA'] = 0, 0
+        player_dict['RA'], player_dict['ERA'], player_dict['FIP'], player_dict['iFIP'] = 0,0,0,0
     
     player_dict['player_id'] = player
     player_dict['team'] = team
@@ -151,6 +152,7 @@ def get_game_data(year, pa_data_df, game_data_df, run_data_df, br_data_df):
     for player, team in players:
         player_dict = get_player_data(player, team, year, pa_data_df, game_data_df, run_data_df, br_data_df, woba_weights)
         new_player = p().dump(player_dict)
+        print(new_player['iFIP'])
         player_dicts.append(new_player)
         if (i % 25 == 0):
             print(new_player)
@@ -227,7 +229,6 @@ def etl_player_data(year):
 
     # Load data into SQL Database
     load(rows)
-
 
 
 

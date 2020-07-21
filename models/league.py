@@ -6,6 +6,7 @@ class League(BASE):
     __tablename__ = 'league'
 
     year = Column(INTEGER(4), primary_key=True)
+    league = Column(VARCHAR(3), primary_key=True)
     H = Column(INTEGER(5))
     HR = Column(INTEGER(5))
     BB = Column(INTEGER(5))
@@ -25,7 +26,9 @@ class League(BASE):
     lgERA = Column(FLOAT(5))
     lgFIP = Column(FLOAT(5))
     lgiFIP = Column(FLOAT(5))
+    cFIP = Column(FLOAT(5))
     ciFIP = Column(FLOAT(5))
+    FIPR9 = Column(FLOAT(5))
     WARadj = Column(FLOAT(5))
     lgSpERA = Column(FLOAT(5))
     lgSpRAA = Column(FLOAT(5))

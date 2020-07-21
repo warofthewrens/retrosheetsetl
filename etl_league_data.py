@@ -49,9 +49,10 @@ expand_team = {
     'WAS' : 'Nationals'
 }
 
-def build_league_stats(year, team_data_df):
+def build_league_stats(year, league, team_data_df):
     league_dict = {}
     league_dict['year'] = year
+    league_dict['league'] = league
     league_dict['H'] = team_data_df.H.sum()
     league_dict['HR'] = team_data_df.HR.sum()
     league_dict['BB'] = team_data_df.BB.sum()
@@ -71,19 +72,22 @@ def build_league_stats(year, team_data_df):
     league_dict['lgERA'] = (league_dict['ER'] / league_dict['IP']) * 9
     league_dict['lgFIP'] = ((13 * league_dict['HR']) + (3 * (league_dict['BB'] + league_dict['HBP']) - (2 * league_dict['K']))) / league_dict['IP']
     league_dict['lgiFIP'] = ((13 * league_dict['HR']) + (3 * (league_dict['BB'] + league_dict['HBP']) - (2 * (league_dict['K'] + league_dict['IFFB']))))/ league_dict['IP']
+    league_dict['cFIP'] = league_dict['lgERA'] - (league_dict['lgFIP'])
     league_dict['ciFIP'] = (league_dict['lgERA'] - (league_dict['lgiFIP']))
+    league_dict['lgFIP'] = league_dict['cFIP'] + league_dict['lgFIP']
+    league_dict['lgiFIP'] = league_dict['ciFIP'] + league_dict['lgiFIP']
     league_dict['WARadj'] = (league_dict['lgRAA'] - (league_dict['lgERA']))
+    league_dict['FIPR9'] = league_dict['lgiFIP'] + league_dict['WARadj']
     league_dict['lgSpERA'] = (league_dict['SpER'] / league_dict['SpIP']) * 9
     league_dict['lgSpRAA'] = (league_dict['SpTR'] / league_dict['SpIP']) * 9
     league_dict['lgSpFIP'] = (team_data_df.SpFIP * team_data_df.SpIP).sum() / (league_dict['SpIP'])
     league_dict['lgRpERA'] = (league_dict['RpER'] / league_dict['RpIP']) * 9
     league_dict['lgRpRAA'] = (league_dict['RpTR'] / league_dict['RpIP']) * 9
-    league_dict['cFIP'] = (league_dict['lgERA'] - (league_dict['lgFIP']))
     league_dict['lgRpFIP'] = (team_data_df.RpFIP * team_data_df.RpIP).sum() / (league_dict['RpIP'])
     return league_dict
 
 
-def get_league_data(year, team_data_df):
+def get_league_data(year, league, team_data_df):
     '''
     Given a year collects statistics for every team
     @param year - string of appropriate year
@@ -96,7 +100,7 @@ def get_league_data(year, team_data_df):
     #create series of the teams 
     team_data_df = team_data_df[team_data_df.year == int(year)]
 
-    league_dict = build_league_stats(year, team_data_df)
+    league_dict = build_league_stats(year, league, team_data_df)
     #for each team build and serialize data
     league = l().dump(league_dict)
     return league
@@ -111,7 +115,7 @@ def load(league):
         session.merge(model(**league))
     session.commit()
 
-def etl_league_data(year):
+def etl_league_data(year, league='MLB'):
     '''
     @param year - string with appropriate year
     '''
@@ -122,9 +126,14 @@ def etl_league_data(year):
         'team',
         con = ENGINE
     )
-    league = get_league_data(year, team_data_df)
-    load(league)
+    if league != 'MLB':
+        team_data_df = team_data_df[team_data_df['league'] == league]
+    league_data = get_league_data(year, league, team_data_df)
+    load(league_data)
 
-etl_league_data('2019')
+def etl_league_data_separated(year):
+    etl_league_data(year)
+    etl_league_data(year, 'NL')
+    etl_league_data(year, 'AL')
 # for i in range(1990, 2020):
 #     etl_league_data(str(i))
