@@ -135,5 +135,7 @@ def etl_league_data_separated(year):
     etl_league_data(year)
     etl_league_data(year, 'NL')
     etl_league_data(year, 'AL')
+
+#etl_league_data_separated('2019')
 # for i in range(1990, 2020):
 #     etl_league_data(str(i))

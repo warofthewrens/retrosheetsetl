@@ -192,7 +192,7 @@ def etl_player_data(year):
     @param year - string containing the year for which to collect data
     '''
     rosters = {}
-    pa_query = '''select * from plateappearance where year = ''' + year
+    pa_query = '''select * from PlateAppearance where year = ''' + year
     print('plate_appearance')
     pa_start = time.time()
 
@@ -205,19 +205,19 @@ def etl_player_data(year):
 
     # Extract game data
     game_data_df = pd.read_sql_table(
-        'game',
+        'Game',
         con=ENGINE
     )
 
     # Extract run data
     run_data_df = pd.read_sql_table(
-        'run',
+        'Run',
         con=ENGINE
     )
 
     # Extract base running events
     br_data_df = pd.read_sql_table(
-        'baserunningevent',
+        'BaseRunningEvent',
         con=ENGINE
     )
     print('done bigger chunk', time.time() - pa_start)
@@ -231,6 +231,6 @@ def etl_player_data(year):
     load(rows)
 
 
-
+#etl_player_data('2019')
 # etl_player_data('2004')
 # etl_player_data('2005')

@@ -231,7 +231,7 @@ def etl_team_data(year):
 
     # Query the SQL database for every plate apperance
     pa_query = '''
-        select * from plateappearance where year =
+        select * from PlateAppearance where year =
     ''' + year
     pa_data_df = pd.concat(list(pd.read_sql_query(
         pa_query,
@@ -240,17 +240,17 @@ def etl_team_data(year):
     )))
     #Player Query
     player_data_df = pd.read_sql_table(
-        'player',
+        'Player',
         con = ENGINE
     )
     #Game Query
     game_data_df = pd.read_sql_table(
-        'game',
+        'Game',
         con = ENGINE
     )
     #Run Query
     run_data_df = pd.read_sql_table(
-        'run',
+        'Run',
         con = ENGINE
     )
     parsed_data = get_teams_data(year, pa_data_df, player_data_df, game_data_df, run_data_df, nl_teams, al_teams)
@@ -258,6 +258,6 @@ def etl_team_data(year):
     rows['team'].extend(parsed_data)
     load(rows)
 
-# etl_team_data('2019')
+#etl_team_data('2019')
 # for i in range(2007, 2019):
 #     etl_team_data(str(i))

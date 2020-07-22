@@ -49,4 +49,4 @@ def etl_league_adjusted_stats(year):
 
     session.commit()
 
-
+#etl_league_adjusted_stats('2019')
