@@ -2,8 +2,10 @@
 from extract import extract_team, extract_roster, extract_rosters, extract_game_data_by_year
 from transform import transform_game 
 from load import create_tables, load_data
-from extract_game_data import etl_player_data
+from extract_player_data import etl_player_data
 from etl_team_data import etl_team_data
+from etl_league_data import etl_league_data_separated
+from etl_league_adjusted_stats import etl_league_adjusted_stats
 from os import walk
 import concurrent.futures
 import time
@@ -134,6 +136,10 @@ if __name__ == '__main__':
         print('working on team')
         etl_team_data(year)
         print('done team')
+        print('working on league')
+        etl_league_data_separated(year)
+        etl_league_adjusted_stats(year)
+        print('finished league')
         
 
 end = time.time()

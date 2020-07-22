@@ -52,3 +52,6 @@ class Player(Schema):
     ER = fields.Integer()
     RA = fields.Float()
     ERA = fields.Float()
+    FIP = fields.Float()
+    iFIP = fields.Float()
+    

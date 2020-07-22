@@ -3,6 +3,7 @@ from marshmallow import Schema, fields
 class League(Schema):
 
     year = fields.Integer()
+    league = fields.String()
     H = fields.Integer()
     HR = fields.Integer()
     BB = fields.Integer()
@@ -22,7 +23,9 @@ class League(Schema):
     lgERA = fields.Float()
     lgFIP = fields.Float()
     lgiFIP = fields.Float()
+    cFIP = fields.Float()
     ciFIP = fields.Float()
+    FIPR9 = fields.Float()
     WARadj = fields.Float()
     lgSpERA = fields.Float()
     lgSpRAA = fields.Float()

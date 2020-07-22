@@ -1,5 +1,7 @@
-from sqlalchemy import Column
+from sqlalchemy import Column, ForeignKey
 from sqlalchemy.dialects.mysql import MEDIUMINT, INTEGER, TINYINT, SMALLINT, VARCHAR, DATETIME, BOOLEAN, DATE, FLOAT
+from sqlalchemy.orm import relationship
+from models.team import Team
 from models.sqla_utils import BASE
 
 class Player(BASE):
@@ -53,4 +55,17 @@ class Player(BASE):
     ER = Column(INTEGER(3))
     RA = Column(FLOAT(4))
     ERA = Column(FLOAT(4))
+    FIP = Column(FLOAT(4))
+    iFIP = Column(FLOAT(4))
+    FIPR9 = Column(FLOAT(4))
+    pFIPR9 = Column(FLOAT(4))
+    dRPW = Column(FLOAT(4))
+    RAAP9 = Column(FLOAT(4))
+    WPGAA = Column(FLOAT(4))
+    WPGAR = Column(FLOAT(5))
+    WAR = Column(FLOAT(5))
+
+    #player_teams = relationship('Team', primaryjoin= team == Team.team)
+    #
+    # player_teams = relationship('Team', primaryjoin='and_(Player.team == Team.team, Player.year == Team.year)')
 
