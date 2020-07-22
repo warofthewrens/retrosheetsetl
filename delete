@@ -1,0 +1,4 @@
+'winning_pitcher', 'losing_pitcher', 'starting_pitcher_home', 'starting_catcher_home', 'starting_first_home',
+                   'starting_second_home', 'starting_third_home', 'starting_short_home', 'starting_left_home', 'starting_center_home',
+                   'starting_right_home', 'starting_pitcher_away', 'starting_catcher_away', 'starting_first_away', 'starting_second_away',
+                   'starting_third_away', 'starting_left_away', 'starting_center_away', 'starting_right_away'

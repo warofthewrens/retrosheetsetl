@@ -317,7 +317,7 @@ def runner_moves(moves, play, runners_out, state, rows):
     
     return outs_this_play
 
-def parse_out(item, play, state, runners_out):
+def parse_out(item, play, state, runners_out, second_event):
     i = 0
     po_ers = []
     last_fielder = item[i]
@@ -337,7 +337,7 @@ def parse_out(item, play, state, runners_out):
         
         if item[i].isdigit():
             po[outs_this_play + 1].append(item[i])
-            if(i == 0):
+            if(i == 0 and not second_event):
                 play['hit_loc'] = int(item[i])
         elif item[i] == '(':
             if item[i + 1] != 'B':
@@ -387,7 +387,7 @@ def play_parser(item, play, state, second_event, rows):
     outs_this_play = 0
     runners_out = []
     if item[0].isdigit():
-        outs_this_play, event_type = parse_out(item, play, state, runners_out)
+        outs_this_play, event_type = parse_out(item, play, state, runners_out, second_event)
     
     if re.match('^SB[23H]', item):
         sbs = item.split(';')
@@ -427,12 +427,14 @@ def play_parser(item, play, state, second_event, rows):
             if play['batter_dest'] == '':
                 play['batter_dest'] = '1'
             play['fielder_id'] = get_field_id(play['is_home'], item[1], state)
-            play['hit_loc'] = item[1]
+            if not second_event:
+                play['hit_loc'] = item[1]
             error_player = item[1]
         else:
             event_type = 13
             play['fielder_id'] = get_field_id(play['is_home'], item[3], state)
-            play['hit_loc'] = item[3]
+            if not second_event:
+                play['hit_loc'] = item[3]
             error_player = item[3]
         
         add_error(error_player, play, state)

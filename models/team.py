@@ -7,6 +7,7 @@ class Team(BASE):
 
     team = Column(VARCHAR(3), primary_key=True)
     year = Column(INTEGER(4), primary_key=True)
+    league = Column(VARCHAR(2))
     W = Column(INTEGER(3))
     L = Column(INTEGER(3))
     win_pct = Column(FLOAT(5))
@@ -51,6 +52,7 @@ class Team(BASE):
     IBBa = Column(INTEGER(3))
     K = Column(INTEGER(3))
     HBPa = Column(INTEGER(3))
+    IFFB = Column(INTEGER(3))
     BK = Column(INTEGER(3))
     SV = Column(INTEGER(2))
     TR = Column(INTEGER(3))
@@ -65,8 +67,10 @@ class Team(BASE):
     SpTR = Column(INTEGER(4))
     RpTR = Column(INTEGER(4))
     SpERA = Column(FLOAT(5))
+    SpFIP = Column(FLOAT(5))
     RpERA = Column(FLOAT(5))
     RpFIP = Column(FLOAT(5))
+    PPFp = Column(FLOAT(3))
 
 
 

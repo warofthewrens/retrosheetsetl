@@ -22,8 +22,10 @@ from sklearn.model_selection import cross_val_predict
 from sklearn.metrics import confusion_matrix
 from sklearn.metrics import precision_score, recall_score
 from sklearn.model_selection import cross_val_score
+from sklearn.model_selection import RandomizedSearchCV
 from sklearn import preprocessing
 from sklearn.inspection import permutation_importance
+from sklearn.model_selection import learning_curve
 
 from tensorflow.keras import losses
 from tensorflow.keras.models import Sequential
@@ -45,7 +47,7 @@ rthome.AVG - rtaway.AVG as AVG_diff,
 rthome.OPS - rtaway.OPS as OPS_diff, 
 rthome.RAA - rtaway.RAA as RAA_diff, 
 rthome.ERA - rtaway.ERA as ERA_diff, 
-rthome.wRAA - rthome.wRAA as wRAA_diff,
+rthome.wRAA - rtaway.wRAA as wRAA_diff,
 sphome.FIP - spaway.FIP as FIP_diff,
 rthome.RpFIP - rtaway.RpFIP as RpFIP_diff,
 (rthome.RpIP/(rthome.SpIP + rthome.RpIP)) - (rtaway.RpIP/(rtaway.SpIP + rtaway.RpIP)) as relief_pct_diff, 
@@ -74,7 +76,7 @@ rthome.AVG - rtaway.AVG as AVG_diff,
 rthome.OPS - rtaway.OPS as OPS_diff, 
 rthome.RAA - rtaway.RAA as RAA_diff, 
 rthome.ERA - rtaway.ERA as ERA_diff, 
-rthome.wRAA - rthome.wRAA as wRAA_diff,
+rthome.wRAA - rtaway.wRAA as wRAA_diff,
 sphome.FIP - spaway.FIP as FIP_diff,
 rthome.RpFIP - rtaway.RpFIP as RpFIP_diff,
 (rthome.RpIP/(rthome.SpIP + rthome.RpIP)) - (rtaway.RpIP/(rtaway.SpIP + rtaway.RpIP)) as relief_pct_diff, 
@@ -185,8 +187,78 @@ test_df = pd.read_sql_query(
 #     con=PLAYOFF_ENGINE
 # )
 
+param_distributions = {}
+loss = ['hinge', 'log', 'modified_huber', 'squared_hinge', 'perceptron']
+penalty = ['l1', 'l2', 'elasticnet']
+penalty_p = ['l1', 'l2']
+alpha = [0.0001, 0.001, 0.01, 0.1, 1, 10, 100, 1000]
+learning_rate = ['constant', 'optimal', 'invscaling', 'adaptive']
+class_weight = [{1:0.5, 0:0.5}, {1:0.4, 0:0.6}, {1:0.6, 0:0.4}, {1:0.7, 0:0.3}]
+eta0 = [1, 10, 100]
+
+
+n_estimators = [1, 10, 50, 100, 200]
+criterion = ['gini', 'entropy']
+min_samples_split = [2, 3, 4]
+min_samples_leaf = [1, 2, 3]
+max_features = ['auto', 'sqrt', 'log2']
+class_weight_forest = ['balanced', 'balanced_subsample']
+ccp_alpha = [0, .0001, .001, .01, 1]
+
+tol = [None, 0.0001, 0.001, 0.01]
+C = [0.1, 1.0, 10, 100]
+solver = ['newton-cg', 'liblinear', 'sag', 'saga']
+multi_class = ['auto', 'ovr', 'multinomial']
+
+splitter = ['best', 'random']
+
+param_distributions[type(SGDClassifier()).__name__] = dict(loss=loss,
+                        penalty=penalty,
+                        alpha=alpha,
+                        learning_rate=learning_rate,
+                        class_weight=class_weight,
+                        eta0=eta0)
+
+param_distributions[type(RandomForestClassifier()).__name__] = dict(
+    n_estimators = n_estimators,
+    criterion = criterion,
+    min_samples_split = min_samples_split,
+    max_features = max_features,
+    class_weight = class_weight_forest,
+    ccp_alpha = ccp_alpha
+)
+
+param_distributions[type(LogisticRegression()).__name__] = dict(
+    penalty = penalty,
+    tol = tol,
+    C = C,
+    class_weight = class_weight,
+    solver = solver,
+    multi_class = multi_class
+)
+
+param_distributions[type(Perceptron()).__name__] = dict(
+    penalty=penalty_p,
+    alpha=alpha,
+    class_weight=class_weight,
+    eta0=eta0
+)
+
+param_distributions[type(DecisionTreeClassifier()).__name__] = dict(
+    criterion = criterion,
+    splitter = splitter,
+    min_samples_split = min_samples_split,
+    max_features = max_features,
+    class_weight = class_weight,
+    ccp_alpha = ccp_alpha
+)
 i = 0
-def matthews_correlation(y_true, y_pred):
+def hinge_validation(y_true, y_pred):
+    '''
+    measure accuracy of hinge model
+    @y_true - the expected data
+    @y_pred - the theoretical data
+    '''
     y_pred_pos = K.round(K.clip(y_pred, -1, 1))
     y_pos = K.round(K.clip(y_true, -1, 1))
 
@@ -197,6 +269,9 @@ def matthews_correlation(y_true, y_pred):
 batch_size = 200
 
 def plot_win_pct():
+    '''
+    plot the predicted data vs some given data
+    '''
     game_winner = 'Winning Team'
     game_loser = 'Losing Team'
     fig, axes = plt.subplots(nrows=1, ncols=1, figsize=(20,10))
@@ -228,6 +303,12 @@ def plot_win_pct():
     plt.show()
 
 def permutation_importance_model(model, X_train, Y_train):
+    '''
+    print the features by importance for the model
+    @param model - the model to measure
+    @param X_train - the given data
+    @param Y_train - the data to predict    
+    '''
     print()
     print('Feature Importance')
     r = permutation_importance(model, X_train, Y_train,
@@ -240,6 +321,12 @@ def permutation_importance_model(model, X_train, Y_train):
                 f" +/- {r.importances_std[i]:.3f}")
 
 def accuracy(model, X_train, Y_train):
+    '''
+    print the model accuracy
+    @param model - the model to measure
+    @param X_train - the given data
+    @param Y_train - the data to predict
+    '''
     print()
     print(type(model).__name__)
     print()
@@ -247,9 +334,53 @@ def accuracy(model, X_train, Y_train):
     print('Accuracy', accuracy)
     return accuracy
 
-def hinge_validation(model, X_train, Y_train, Y_pred):
+def continuous_validation(model, X_train, Y_train, Y_pred):
+    Y_test = test_df['home_team_won']
+    # Y_test.replace(0, -1, inplace=True)
+    print()
+    predictions = cross_val_predict(model, X_train, Y_train, cv=3)
+    # print(confusion_matrix(Y_train, predictions))
+
+    # print("Precision:", precision_score(Y_train, predictions))
+    # print("Recall:",recall_score(Y_train, predictions))
+    print()
+    print('Cross validation')
+    # scores = cross_val_score(model, X_train, Y_train, cv=4, scoring = "accuracy")
+    # print("Scores:", scores)
+    # print("Mean:", scores.mean())
+    # print("Standard Deviation:", scores.std())
+    print()
+    print('Test Data')
+    tp = 0
+    fp = 0
+    fn = 0
+    tn = 0
+    for i in range(len(Y_pred)):
+        pred = Y_pred[i]
+        test = Y_test[i]
+        if test == 1 and pred >= 0.5:
+            tp += 1
+        elif test == 1 and pred < 0.5:
+            fn += 1
+        elif test == 0 and pred >= 0.5:
+            fp += 1
+        elif test == 0 and pred < 0.5:
+            tn += 1
+    print('correct', tp + tn)
+    print('incorrect', fp + fn)
+    print('true positives', tp)
+    print('true negatives', tn)
+    print('false positives', fp)
+    print('false negatives', fn)
 
 def cross_validation(model, X_train, Y_train, Y_pred):
+    '''
+    print out cross validation and other metrics given a model
+    @param model - the model to measure
+    @param X_train - the given data
+    @param Y_train - the data to predict
+    @param Y_pred - the prediction the model made on the test data
+    '''
     Y_test = test_df['home_team_won']
     # Y_test.replace(0, -1, inplace=True)
     print()
@@ -273,7 +404,6 @@ def cross_validation(model, X_train, Y_train, Y_pred):
     for i in range(len(Y_pred)):
         pred = Y_pred[i]
         test = Y_test[i]
-        print('pred', pred, 'test', test)
         if pred == 1 and test == pred:
             tp += 1
         elif pred == 1 and test != pred:
@@ -289,99 +419,172 @@ def cross_validation(model, X_train, Y_train, Y_pred):
     print('false positives', fp)
     print('false negatives', fn)
 
-def build_model(model, X_train, Y_train, X_test):
+def plot_learning_curve(model, X_train, Y_train):
+    # Create CV training and test scores for various training set sizes
+    train_sizes, train_scores, test_scores = learning_curve(model, 
+                                                            X_train, 
+                                                            Y_train,
+                                                            # Number of folds in cross-validation
+                                                            cv=4,
+                                                            # Evaluation metric
+                                                            scoring='accuracy',
+                                                            # Use all computer cores
+                                                            n_jobs=-1, 
+                                                            # 50 different sizes of the training set
+                                                            train_sizes=np.linspace(0.01, 1.0, 50))
+
+    # Create means and standard deviations of training set scores
+    train_mean = np.mean(train_scores, axis=1)
+    train_std = np.std(train_scores, axis=1)
+
+    # Create means and standard deviations of test set scores
+    test_mean = np.mean(test_scores, axis=1)
+    test_std = np.std(test_scores, axis=1)
+
+    # Draw lines
+    plt.plot(train_sizes, train_mean, '--', color="#111111",  label="Training score")
+    plt.plot(train_sizes, test_mean, color="#111111", label="Cross-validation score")
+
+    # Draw bands
+    plt.fill_between(train_sizes, train_mean - train_std, train_mean + train_std, color="#DDDDDD")
+    plt.fill_between(train_sizes, test_mean - test_std, test_mean + test_std, color="#DDDDDD")
+
+    # Create plot
+    plt.title(type(model).__name__ + " Learning Curve")
+    plt.xlabel("Training Set Size"), plt.ylabel("Accuracy Score"), plt.legend(loc="best")
+    plt.tight_layout()
+    plt.show()
+
+def build_model(model, X_train, Y_train, X_test, hyperparam=True):
+    '''
+    Taking a model and data train the model and predict test data before printing a series of metrics
+    @param model - the model to train
+    @param X_train - the given data
+    @param Y_train - the data to predict
+    @param X_test - the given data for the test
+    '''
     model.fit(X_train, Y_train)
     Y_pred = model.predict(X_test)
     accuracy(model, X_train, Y_train)
+    # if not continuous:
     cross_validation(model, X_train, Y_train, Y_pred)
+    # else:
+    #     continuous_validation(model, X_train, Y_train, Y_pred)
     permutation_importance_model(model, X_train, Y_train)
+    #plot_learning_curve(model, X_train, Y_train)
+    # if hyperparam:
+    #     hyper_parameters(model, X_train, Y_train)
 
 def calculate_spe(y):
   return int(math.ceil((1. * y) / batch_size))
 
+def hyper_parameters(model, X_train, Y_train):
+
+
+    random = RandomizedSearchCV(estimator=model,
+                                param_distributions=param_distributions[type(model).__name__],
+                                scoring='accuracy',
+                                verbose=1, n_jobs=-1,
+                                n_iter=100)
+    print(random.estimator.get_params().keys())
+    random_result = random.fit(X_train, Y_train)
+
+    print('Best Score: ', random_result.best_score_)
+    print('Best Params: ', random_result.best_params_)
+
 def main():
     # train_df.info()
     #plot_win_pct()
-    X_train = train_df.drop('home_team', axis=1).drop('away_team', axis=1).drop('year', axis=1).drop('home_team_won', axis=1).drop('CS_diff', axis=1).drop('RAA_diff', axis=1).drop('ERA_diff', axis=1).drop('SF_diff', axis=1).drop('SB_diff', axis=1).drop('SH_diff', axis=1).drop('OPS_diff', axis=1).drop('RpERA_diff', axis=1).drop('SpERA_diff', axis=1)
+    X_train = train_df.drop('home_team', axis=1).drop('away_team', axis=1).drop('year', axis=1).drop('home_team_won', axis=1).drop('CS_diff', axis=1).drop('RAA_diff', axis=1).drop('ERA_diff', axis=1).drop('SF_diff', axis=1).drop('SB_diff', axis=1).drop('SH_diff', axis=1).drop('OPS_diff', axis=1).drop('RpERA_diff', axis=1).drop('SpERA_diff', axis=1).drop('AVG_diff', axis=1).drop('win_pct_diff', axis=1).drop('relief_pct_diff', axis=1).drop('RpFIP_diff', axis=1)
     #X_train = train_df.drop('home_team', axis=1).drop('away_team', axis=1).drop('year', axis=1).drop('home_team_won', axis=1)
     Y_train = train_df['home_team_won']
-    X_test = test_df.drop('home_team', axis=1).drop('away_team', axis=1).drop('year', axis=1).drop('home_team_won', axis=1).drop('CS_diff', axis=1).drop('RAA_diff', axis=1).drop('ERA_diff', axis=1).drop('SF_diff', axis=1).drop('SB_diff', axis=1).drop('SH_diff', axis=1).drop('OPS_diff', axis=1).drop('RpERA_diff', axis=1).drop('SpERA_diff', axis=1)
+    X_test = test_df.drop('home_team', axis=1).drop('away_team', axis=1).drop('year', axis=1).drop('home_team_won', axis=1).drop('CS_diff', axis=1).drop('RAA_diff', axis=1).drop('ERA_diff', axis=1).drop('SF_diff', axis=1).drop('SB_diff', axis=1).drop('SH_diff', axis=1).drop('OPS_diff', axis=1).drop('RpERA_diff', axis=1).drop('SpERA_diff', axis=1).drop('AVG_diff', axis=1).drop('win_pct_diff', axis=1).drop('relief_pct_diff', axis=1).drop('RpFIP_diff', axis=1)
     #X_test = test_df.drop('home_team', axis=1).drop('away_team', axis=1).drop('year', axis=1).drop('home_team_won', axis=1)
     scaler = preprocessing.StandardScaler().fit(X_train)
     columns = X_train.columns
     X_train = pd.DataFrame(scaler.transform(X_train), columns=columns)
     X_test = pd.DataFrame(scaler.transform(X_test), columns=columns)
     Y_test = test_df['home_team_won']
-    print(Y_train)
-    print(type(Y_train))
-    Y_train.replace(0, -1, inplace=True)
-    Y_test.replace(0, -1, inplace=True)
 
     steps_per_epoch = calculate_spe(X_train.size)
 
-    # Stochastic Gradient Descent
-    build_model(linear_model.SGDClassifier(max_iter=1000, tol=None), X_train, Y_train, X_test)
+    data = [X_train, X_test]
 
+    for dataset in data:
+        dataset.loc[dataset['SpERA_diff']]
+    # # Ridge
+    # rigde = build_model(linear_model.Ridge(), X_train, Y_train, X_test, True)
+
+    # # Lasso
+    # lasso = build_model(linear_model.Lasso(), X_train, Y_train, X_test, True)
+
+    # # Elastic
+    # elastic = build_model(linear_model.ElasticNet(), X_train, Y_train, X_test, True)
+
+    # # Lasso Lars
+    # lasso_lars = build_model(linear_model.LassoLars(), X_train, Y_train, X_test, True)
+
+    # # Bayesian Ridge
+    # bayesian_ridge = build_model(linear_model.BayesianRidge, X_train, Y_train, X_test, True)
+
+    # Stochastic Gradient Descent
+    # sgd = build_model(linear_model.SGDClassifier(max_iter=1000, tol=None, penalty='l1', loss='log', eta0=100, learning_rate='optimal', class_weight={1: 0.4, 0: 0.6}, alpha=.001), X_train, Y_train, X_test)
+    sgd = build_model(linear_model.SGDClassifier(max_iter=1000, tol=None), X_train, Y_train, X_test, False)
     # Random Forest
-    build_model(RandomForestClassifier(n_estimators=10), X_train, Y_train, X_test)
+    random_forest = build_model(RandomForestClassifier(n_estimators=50, min_samples_split = 4, max_features='log2', criterion='entropy', 
+                                class_weight='balanced', ccp_alpha=.001), X_train, Y_train, X_test, False)
   
     # Logistic Regression
-    build_model(LogisticRegression(max_iter=10000), X_train, Y_train, X_test)
+    log = build_model(LogisticRegression(max_iter=10000, tol=0.001, solver='liblinear', penalty='l1', multi_class='ovr', 
+                                        class_weight={1:0.5, 0:0.5}, C=0.1), X_train, Y_train, X_test, False)
 
-    #KNN 
+    # KNN 
     # build_model(KNeighborsClassifier(n_neighbors = 3), X_train, Y_train, X_test)
 
     # Gaussian
     gaussian = GaussianNB()
-    build_model(gaussian, X_train, Y_train, X_test)
+    build_model(gaussian, X_train, Y_train, X_test, False)
     cross_val_score(gaussian, X_train, Y_train, cv=5, scoring='accuracy')
 
-    #Perceptron
-    build_model(Perceptron(max_iter=10000), X_train, Y_train, X_test)
+    # Perceptron
+    perceptron = build_model(Perceptron(max_iter=10000, penalty='l2', eta0=10, class_weight={1: 0.6, 0: 0.4}, alpha=0.0001), X_train, Y_train, X_test)
 
-    #Decision Tree
-    build_model(DecisionTreeClassifier(), X_train, Y_train, X_test)
+    # Decision Tree
+    d_tree = build_model(DecisionTreeClassifier(splitter='best', min_samples_split=4, max_features='log2', criterion='entropy', class_weight={1:0.5, 0:0.5}, ccp_alpha=0.0001), X_train, Y_train, X_test)
+    
+    # Hinge
 
-    model = Sequential()
-    model.add(Dense(50, input_dim=7, activation='relu', kernel_initializer='he_uniform'))
-    model.add(Dense(1, activation='tanh'))
-    opt = optimizers.SGD(lr = 0.01, momentum= 0.9)
-    model.compile(loss='hinge', optimizer = 'Nadam', metrics=['accuracy', 'binary_accuracy', matthews_correlation])
+    # Y_train.replace(0, -1, inplace=True)
+    # Y_test.replace(0, -1, inplace=True)
+    # model = Sequential()
+    # model.add(Dense(50, input_dim=4, activation='relu', kernel_initializer='he_uniform'))
+    # model.add(Dense(1, activation='tanh'))
+    # opt = optimizers.SGD(lr = 0.01, momentum= 0.9)
+    # model.compile(loss='hinge', optimizer = 'adam', metrics=['accuracy', 'binary_accuracy', hinge_validation])
 
 
+    # history = model.fit(X_train, Y_train, epochs=200, verbose=0, validation_split=0.2)
+    # Y_pred = model.predict(X_test)
+    # # cross_validation(model, X_train, Y_train, Y_pred)
 
-    # model.compile(loss='mean_squared_error', optimizer='Nadam', metrics=['accuracy', 'categorical_accuracy'])
+    # # plot hinge accuracy
+    # plt.plot(history.history['hinge_validation'])
+    # plt.plot(history.history['val_hinge_validation'])
+    # plt.title('model accuracy')
+    # plt.ylabel('accuracy')
+    # plt.xlabel('epoch')
+    # plt.legend(['train'], loc='upper left')
+    # plt.show()
+    # # "Loss"
+    # plt.plot(history.history['loss'])
+    # plt.plot(history.history['val_loss'])
+    # plt.title('model loss')
+    # plt.ylabel('loss')
+    # plt.xlabel('epoch')
+    # plt.legend(['train', 'validation'], loc='upper left')
+    # plt.show()
 
-    history = model.fit(X_train, Y_train, epochs=200, verbose=0, validation_split=0.2)
-    Y_pred = model.predict(X_test)
-    cross_validation(model, X_train, Y_train, Y_pred)
-    # print(Y_pred)
-    # for i in len(Y_pred):
-    #     print(Y_pred[i], Y_test[i])
-    # confusion_matrix = tf.math.confusion_matrix(labels=Y_test, predictions=Y_pred).numpy()
-    # print(confusion_matrix)
-    # train_mse = model.evaluate(X_train, Y_train, verbose=0)
-    # print(train_mse)
-    # test_mse = model.evaluate(X_test, Y_test, verbose=0)
-    # print('Train: %.3f, Test: %.3f' % (train_mse, test_mse))
 
-    plt.plot(history.history['matthews_correlation'])
-    plt.plot(history.history['val_matthews_correlation'])
-    plt.title('model accuracy')
-    plt.ylabel('accuracy')
-    plt.xlabel('epoch')
-    plt.legend(['train'], loc='upper left')
-    plt.show()
-    # "Loss"
-    plt.plot(history.history['loss'])
-    plt.plot(history.history['val_loss'])
-    plt.title('model loss')
-    plt.ylabel('loss')
-    plt.xlabel('epoch')
-    plt.legend(['train', 'validation'], loc='upper left')
-    plt.show()
-
-    plt.show()
 
 
 main()

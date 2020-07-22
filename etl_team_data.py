@@ -7,13 +7,51 @@ from models.sqla_utils import ENGINE, BASE, get_session
 from models.team import Team
 from parsed_schemas.team import Team as t
 from extract import extract_roster_team, extract_game_data_by_year
-from extract_fangraphs import extract_fangraphs
+from extract_fangraphs import extract_fangraphs, extract_park_factors
 
 MODELS = [Team]
 
+expand_team = {
+    'ARI' : 'Diamondbacks',
+    'ATL' : 'Braves',
+    'BAL' : 'Orioles',
+    'BOS' : 'Red Sox',
+    'CAL' : 'Angels',
+    'ANA' : 'Angels',
+    'CHA' : 'White Sox',
+    'CHN' : 'Cubs',
+    'CIN' : 'Reds',
+    'CLE' : 'Indians',
+    'COL' : 'Rockies',
+    'DET' : 'Tigers',
+    'FLA' : 'Marlins',
+    'FLO' : 'Marlins',
+    'HOU' : 'Astros',
+    'KCA' : 'Royals',
+    'LAN' : 'Dodgers',
+    'MIL' : 'Brewers',
+    'MIN' : 'Twins',
+    'MIA' : 'Marlins',
+    'MON' : 'Expos',
+    'NYA' : 'Yankees',
+    'NYN' : 'Mets',
+    'OAK' : 'Athletics',
+    'PHI' : 'Phillies',
+    'PIT' : 'Pirates',
+    'SDN' : 'Padres',
+    'SEA' : 'Mariners',
+    'SFN' : 'Giants',
+    'SLN' : 'Cardinals',
+    'TBA' : 'Rays',
+    'TBD' : 'Devil Rays',
+    'TEX' : 'Rangers',
+    'TOR' : 'Blue Jays',
+    'WAS' : 'Nationals'
+}
 
 
-def get_team_data(team, year, pa_data_df, player_data_df, game_data_df, run_data_df, woba_weights):
+
+def get_team_data(team, year, pa_data_df, player_data_df, game_data_df, run_data_df, woba_weights, pf_weights, nl_teams, al_teams):
     '''
     convert a combination of player, plate appearance, run, and game data into team level data
     @param team - three letter string team code
@@ -31,6 +69,10 @@ def get_team_data(team, year, pa_data_df, player_data_df, game_data_df, run_data
     run_year = (run_data_df.year == int(year))
     team_dict['team'] = team
     team_dict['year'] = year
+    if team in nl_teams:
+        team_dict['league'] = 'NL'
+    elif team in al_teams:
+        team_dict['league'] = 'AL'
     team_dict['W'] = game_data_df[(game_data_df.winning_team == team) & game_year].winning_team.count()
     team_dict['L'] = game_data_df[(game_data_df.losing_team == team) & game_year].losing_team.count()
     team_dict['win_pct'] = (team_dict['W']/(team_dict['W'] + team_dict['L']))
@@ -70,8 +112,9 @@ def get_team_data(team, year, pa_data_df, player_data_df, game_data_df, run_data
     baserunning = (woba_weights.runSB * team_dict['SB']) + (woba_weights.runCS * team_dict['CS'])
     sabr_PA = (team_dict['AB'] + team_dict['BB'] + team_dict['HBP'] + team_dict['SF'])
     sabr_PA_no_IBB = sabr_PA - team_dict['IBB']
-    team_dict['wOBA'] = (bb + hbp + hits + baserunning)/sabr_PA_no_IBB
-    team_dict['wRAA'] = ((team_dict['wOBA'] - woba_weights.wOBA)/(woba_weights.wOBAScale)) * sabr_PA
+    team_dict['PPFp'] = (pf_weights['Basic (5yr)'] / 100).item()
+    team_dict['wOBA'] = ((bb + hbp + hits + baserunning)/sabr_PA_no_IBB) * team_dict['PPFp']
+    team_dict['wRAA'] = (((team_dict['wOBA'] - woba_weights.wOBA)/(woba_weights.wOBAScale)) * sabr_PA) 
     team_dict['BF'] = player_data_df[player_year].BF.sum()
     team_dict['IP'] = player_data_df[player_year].IP.sum()
     team_dict['Ha'] = player_data_df[player_year].Ha.sum()
@@ -79,6 +122,7 @@ def get_team_data(team, year, pa_data_df, player_data_df, game_data_df, run_data
     team_dict['TBa'] = player_data_df[player_year].TBa.sum()
     team_dict['BBa'] = player_data_df[player_year].BBa.sum()
     team_dict['IBBa'] = player_data_df[player_year].IBBa.sum()
+    team_dict['IFFB'] = player_data_df[player_year].IFFB.sum()
     team_dict['K'] = player_data_df[player_year].K.sum()
     team_dict['HBPa'] = player_data_df[player_year].HBPa.sum()
     team_dict['BK'] = player_data_df[player_year].BK.sum()
@@ -97,17 +141,22 @@ def get_team_data(team, year, pa_data_df, player_data_df, game_data_df, run_data
                                     & (run_data_df.is_earned == True) & run_year].is_sp.count()
     team_dict['SpTR'] = run_data_df[(run_data_df.is_sp == True) & (run_data_df.conceding_team == team) 
                                     & run_year].is_sp.count()
-    team_dict['RpTR'] = run_data_df[(run_data_df.is_sp == True) & (run_data_df.conceding_team == team) 
-                                    & (run_data_df.is_team_earned) & run_year].is_sp.count()
+    team_dict['RpTR'] = run_data_df[(run_data_df.is_sp == False) & (run_data_df.conceding_team == team) 
+                                     & run_year].is_sp.count()
     relief_hr = pa_data_df[(pa_data_df.sp_flag == False) & (pa_data_df.pitcher_team == team) & (pa_data_df.hit_val == 4) & pa_year].pa_flag.count()
     relief_k = pa_data_df[(pa_data_df.sp_flag == False) & (pa_data_df.pitcher_team == team) & (pa_data_df.event_type == 3) & pa_year].pa_flag.count()
-    relief_bb = pa_data_df[(pa_data_df.sp_flag == False) & (pa_data_df.pitcher_team == team) & (pa_data_df.event_type == 14) & pa_year].pa_flag.count()
+    relief_bb = pa_data_df[(pa_data_df.sp_flag == False) & (pa_data_df.pitcher_team == team) & ((pa_data_df.event_type == 14) | (pa_data_df.event_type == 15)) & pa_year].pa_flag.count()
+    start_hr = team_dict['HRa'] - relief_hr
+    start_k = team_dict['K'] - relief_k
+    start_bb = (team_dict['BBa'] - team_dict['HBPa']) - relief_bb
+    
     team_dict['SpERA'] = (team_dict['SpER'] / team_dict['SpIP']) * 9
     team_dict['RpERA'] = (team_dict['RpER'] / team_dict['RpIP']) * 9
-    team_dict['RpFIP'] = ((13 * relief_hr) + (3 * relief_k) - (2 * relief_bb))/(team_dict['RpIP'])
+    team_dict['SpFIP'] = ((13 * start_hr) + (3 * start_bb) - (2 * start_k)) / (team_dict['SpIP'])
+    team_dict['RpFIP'] = ((13 * relief_hr) + (3 * relief_bb) - (2 * relief_k))/(team_dict['RpIP'])
     return team_dict
 
-def get_teams_data(year, pa_data_df, player_data_df, game_data_df, run_data_df):
+def get_teams_data(year, pa_data_df, player_data_df, game_data_df, run_data_df, nl_teams, al_teams):
     '''
     Given a year collects statistics for every team
     @param year - string of appropriate year
@@ -126,9 +175,17 @@ def get_teams_data(year, pa_data_df, player_data_df, game_data_df, run_data_df):
     woba_df = extract_fangraphs()
     woba_weights = woba_df[woba_df.Season == int(year)]
 
+    pf_df = extract_park_factors(year)
+    print(pf_df)
     #for each team build and serialize data
     for team in teams:
-        team_dict = get_team_data(team, year, pa_data_df, player_data_df, game_data_df, run_data_df, woba_weights)
+        if team == 'TBA' and int(year) <= 2007:
+            team = 'TBD'
+        pf_weights = pf_df[pf_df.Team == expand_team[team]]
+        if team == 'TBD':
+            team = 'TBA'
+        print(pf_weights)
+        team_dict = get_team_data(team, year, pa_data_df, player_data_df, game_data_df, run_data_df, woba_weights, pf_weights, nl_teams, al_teams)
         new_team = t().dump(team_dict)
         team_dicts.append(new_team)
     return team_dicts
@@ -143,11 +200,13 @@ def load(results):
         data = results[model.__tablename__]
         i = 0
         # Here is where we convert directly the dictionary output of our marshmallow schema into sqlalchemy
+        objs = []
         for row in data:
             if i % 1000 == 0:
                 print('loading...', i)
             i+=1
             session.merge(model(**row))
+    
     session.commit()
 
 def etl_team_data(year):
@@ -155,6 +214,21 @@ def etl_team_data(year):
     @param year - string with appropriate year
     '''
     print(year)
+    data_zip, data_td = extract_game_data_by_year(year)
+    nl_teams = set([])
+    al_teams = set([])
+    f = []
+    for (dirpath, dirnames, filenames) in walk(data_td):
+        f.extend(filenames)
+        break
+    shutil.rmtree(data_td)
+    print(f)
+    for team_file in f:
+        if team_file[-4:] == '.EVN':
+            nl_teams.add(team_file[4:7])
+        if team_file[-4:] == '.EVA':
+            al_teams.add(team_file[4:7])
+
     # Query the SQL database for every plate apperance
     pa_query = '''
         select * from plateappearance where year =
@@ -179,7 +253,11 @@ def etl_team_data(year):
         'run',
         con = ENGINE
     )
-    parsed_data = get_teams_data(year, pa_data_df, player_data_df, game_data_df, run_data_df)
+    parsed_data = get_teams_data(year, pa_data_df, player_data_df, game_data_df, run_data_df, nl_teams, al_teams)
     rows = {table: [] for table in ['team']}
     rows['team'].extend(parsed_data)
     load(rows)
+
+etl_team_data('2019')
+# for i in range(2007, 2019):
+#     etl_team_data(str(i))

@@ -41,3 +41,11 @@ class Info(Schema):
     def is_day(self, data, **kwargs):
         data['daynight'] = (data['daynight'] == 'day')
         return data
+    
+    @pre_load
+    def fix_player(self, data, **kwargs):
+        players = ['wp', 'lp']
+        for player in players:
+            if player in data.keys():
+                data[player] = data[player][-8:]
+        return data
