@@ -72,6 +72,3 @@ class Team(BASE):
     RpFIP = Column(FLOAT(5))
     PPFp = Column(FLOAT(3))
 
-
-
-
