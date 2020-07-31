@@ -25,8 +25,10 @@ def extract_game_data_by_year(year):
 
 def extract_playoff_data_by_year(year):
     playoff_data_url = 'https://www.retrosheet.org/events/' + year + 'post.zip'
+    print(playoff_data_url)
     data_req = requests.get(playoff_data_url)
     data_td = tempfile.mkdtemp()
+    print(data_td)
     data_zip = zipfile.ZipFile(io.BytesIO(data_req.content))
     data_zip.extractall(data_td)
     return data_zip, data_td

@@ -4,9 +4,10 @@ from models.playoff_plate_appearance import PlateAppearance
 from models.playoff_game import Game
 from models.playoff_run import Run
 from models.playoff_br_event import BaseRunningEvent
+from models.series import Series
 from sqlalchemy import MetaData
 import concurrent.futures
-MODELS = [PlateAppearance, Game, Run, BaseRunningEvent]
+MODELS = [Game, PlateAppearance, Run, BaseRunningEvent, Series]
 
 
 def create_tables():
@@ -29,9 +30,9 @@ def load_data(results):
         objs = []
         games = set([])
         for row in data:
-            session.merge(model(**row))
-            
+            #session.merge(model(**row))
+            objs.append(model(**row))
             i += 1
-        
+        session.bulk_save_objects(objs)
     session.commit()
     print('loaded')

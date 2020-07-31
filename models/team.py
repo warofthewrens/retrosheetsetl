@@ -42,6 +42,8 @@ class Team(BASE):
     SLG = Column(FLOAT(5))
     OPS = Column(FLOAT(5))
     wOBA = Column(FLOAT(5))
+    PPFp = Column(FLOAT(5))
+    wOBAadj = Column(FLOAT(5))
     wRAA = Column(FLOAT(5))
     BF = Column(INTEGER(4))
     IP = Column(FLOAT(5))

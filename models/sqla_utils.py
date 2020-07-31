@@ -7,7 +7,7 @@ import os
 
 
 ENGINE = create_engine('mysql+pymysql://warofthewrens:DeJesus18Carlton32@35.245.199.134:3306/retrosheet', echo=False)
-PLAYOFF_ENGINE = create_engine('mysql+pymysql://warofthewrens:DeJesus18Carlton32@5.245.199.134:3306/playoffs', echo=False)
+PLAYOFF_ENGINE = create_engine('mysql+pymysql://warofthewrens:DeJesus18Carlton32@35.245.199.134:3306/playoffs', echo=False)
 
 engine = create_engine("sqlite:///myexample.db")  # Access the DB Engine
 if not engine.dialect.has_table(engine, 'PlateAppearance'):  # If table don't exist, Create.

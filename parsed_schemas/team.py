@@ -41,6 +41,8 @@ class Team(Schema):
     SLG = fields.Float()
     OPS = fields.Float()
     wOBA = fields.Float()
+    PPFp = fields.Float()
+    wOBAadj = fields.Float()
     wRAA = fields.Float()
     BF = fields.Integer()
     IP = fields.Float()

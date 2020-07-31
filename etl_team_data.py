@@ -112,9 +112,10 @@ def get_team_data(team, year, pa_data_df, player_data_df, game_data_df, run_data
     baserunning = (woba_weights.runSB * team_dict['SB']) + (woba_weights.runCS * team_dict['CS'])
     sabr_PA = (team_dict['AB'] + team_dict['BB'] + team_dict['HBP'] + team_dict['SF'])
     sabr_PA_no_IBB = sabr_PA - team_dict['IBB']
-    team_dict['PPFp'] = (pf_weights['Basic (5yr)'] / 100).item()
-    team_dict['wOBA'] = ((bb + hbp + hits + baserunning)/sabr_PA_no_IBB) * team_dict['PPFp']
-    team_dict['wRAA'] = (((team_dict['wOBA'] - woba_weights.wOBA)/(woba_weights.wOBAScale)) * sabr_PA) 
+    team_dict['PPFp'] = 1/((pf_weights['Basic (5yr)'] / 100).item())
+    team_dict['wOBA'] = ((bb + hbp + hits + baserunning)/sabr_PA_no_IBB)
+    team_dict['wOBAadj'] = team_dict['wOBA'].item() * team_dict['PPFp']
+    team_dict['wRAA'] = (((team_dict['wOBAadj'] - woba_weights.wOBA)/(woba_weights.wOBAScale)) * sabr_PA) 
     team_dict['BF'] = player_data_df[player_year].BF.sum()
     team_dict['IP'] = player_data_df[player_year].IP.sum()
     team_dict['Ha'] = player_data_df[player_year].Ha.sum()
@@ -176,7 +177,6 @@ def get_teams_data(year, pa_data_df, player_data_df, game_data_df, run_data_df, 
     woba_weights = woba_df[woba_df.Season == int(year)]
 
     pf_df = extract_park_factors(year)
-    print(pf_df)
     #for each team build and serialize data
     for team in teams:
         if team == 'TBA' and int(year) <= 2007:
@@ -184,9 +184,9 @@ def get_teams_data(year, pa_data_df, player_data_df, game_data_df, run_data_df, 
         pf_weights = pf_df[pf_df.Team == expand_team[team]]
         if team == 'TBD':
             team = 'TBA'
-        print(pf_weights)
         team_dict = get_team_data(team, year, pa_data_df, player_data_df, game_data_df, run_data_df, woba_weights, pf_weights, nl_teams, al_teams)
         new_team = t().dump(team_dict)
+        print(new_team['wOBAadj'])
         team_dicts.append(new_team)
     return team_dicts
 
@@ -258,6 +258,6 @@ def etl_team_data(year):
     rows['team'].extend(parsed_data)
     load(rows)
 
-#etl_team_data('2019')
-# for i in range(2007, 2019):
-#     etl_team_data(str(i))
+# etl_team_data('2019')
+for i in range(2008, 2018):
+    etl_team_data(str(i))

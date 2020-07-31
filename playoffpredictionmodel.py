@@ -53,17 +53,23 @@ rthome.RpFIP - rtaway.RpFIP as RpFIP_diff,
 (rthome.RpIP/(rthome.SpIP + rthome.RpIP)) - (rtaway.RpIP/(rtaway.SpIP + rtaway.RpIP)) as relief_pct_diff, 
 rthome.RpERA - rtaway.RpERA as RpERA_diff,
 sphome.ERA - spaway.ERA as SpERA_diff, 
-(pg.home_team = pg.winning_team) as home_team_won
-from retrosheet.game pg
+sphome.WAR - spaway.WAR as SpWAR_diff,
+(pg.home_team = pg.winning_team) as home_team_won, 
+(SELECT stddev(wRAA) FROM retrosheet.Player where year = pg.year and team = rthome.team order by PA desc limit 8) -
+(SELECT stddev(wRAA) FROM retrosheet.Player where year = pg.year and team = rtaway.team order by PA desc limit 8) as batting_dist_diff,
+(SELECT stddev(WAR) FROM retrosheet.Player where year = pg.year and team = rthome.team and IP > 50 order by GS desc limit 5) -
+(SELECT stddev(WAR) FROM retrosheet.Player where year = pg.year and team = rtaway.team and IP > 50 order by GS desc limit 5) as pitching_dist_diff
+from retrosheet.Game pg
 join retrosheet.team rthome
 on rthome.year = pg.year and((rthome.team = pg.winning_team) or (rthome.team = pg.losing_team))
 join retrosheet.team rtaway
 on rtaway.year = pg.year and (rtaway.team = pg.winning_team or rtaway.team = pg.losing_team)
-join retrosheet.player sphome
+join retrosheet.Player sphome
 on sphome.player_id = pg.starting_pitcher_home and sphome.year = pg.year and sphome.team = pg.home_team
-join retrosheet.player spaway
+join retrosheet.Player spaway
 on spaway.player_id = pg.starting_pitcher_away and spaway.year = pg.year and spaway.team = pg.away_team
-where rthome.team = pg.home_team and rtaway.team = pg.away_team;'''
+where rthome.team = pg.home_team and rtaway.team = pg.away_team
+;'''
 
 diff_test = '''select pg.home_team, pg.away_team, pg.year, 
 rthome.win_pct - rtaway.win_pct as win_pct_diff,
@@ -82,17 +88,22 @@ rthome.RpFIP - rtaway.RpFIP as RpFIP_diff,
 (rthome.RpIP/(rthome.SpIP + rthome.RpIP)) - (rtaway.RpIP/(rtaway.SpIP + rtaway.RpIP)) as relief_pct_diff, 
 rthome.RpERA - rtaway.RpERA as RpERA_diff,
 sphome.ERA - spaway.ERA as SpERA_diff, 
-(pg.home_team = pg.winning_team) as home_team_won
-from playoffs.game pg
+sphome.WAR - spaway.WAR as SpWAR_diff,
+(pg.home_team = pg.winning_team) as home_team_won, 
+(SELECT stddev(wRAA) FROM retrosheet.Player where year = pg.year and team = rthome.team order by PA desc limit 8) -
+(SELECT stddev(wRAA) FROM retrosheet.Player where year = pg.year and team = rtaway.team order by PA desc limit 8) as batting_dist_diff,
+(SELECT stddev(WAR) FROM retrosheet.Player where year = pg.year and team = rthome.team and IP > 50 order by GS desc limit 5) -
+(SELECT stddev(WAR) FROM retrosheet.Player where year = pg.year and team = rtaway.team and IP > 50 order by GS desc limit 5) as pitching_dist_diff
+from playoffs.Game pg
 join retrosheet.team rthome
 on rthome.year = pg.year and((rthome.team = pg.winning_team) or (rthome.team = pg.losing_team))
 join retrosheet.team rtaway
 on rtaway.year = pg.year and (rtaway.team = pg.winning_team or rtaway.team = pg.losing_team)
-join retrosheet.player sphome
+join retrosheet.Player sphome
 on sphome.player_id = pg.starting_pitcher_home and sphome.year = pg.year and sphome.team = pg.home_team
-join retrosheet.player spaway
+join retrosheet.Player spaway
 on spaway.player_id = pg.starting_pitcher_away and spaway.year = pg.year and spaway.team = pg.away_team
-where rthome.team = pg.home_team and rtaway.team = pg.away_team;'''
+where rthome.team = pg.home_team and rtaway.team = pg.away_team'''
 
 train_query = '''
 select pg.home_team, pg.away_team, pg.year, 
@@ -157,12 +168,12 @@ rtaway.ERA as away_ERA,
 (rtaway.RpIP/(rtaway.SpIP + rtaway.RpIP)) as away_relief_pct, 
 rtaway.RpERA as away_RpERA, 
 (pg.home_team = pg.winning_team) as home_team_won
-from playoffs.game pg
-join retrosheet.team rthome
-on rthome.year = pg.year and((rthome.team = pg.winning_team) or (rthome.team = pg.losing_team))
-join retrosheet.team rtaway
-on rtaway.year = pg.year and (rtaway.team = pg.winning_team or rtaway.team = pg.losing_team)
-where rthome.team = pg.home_team and rtaway.team = pg.away_team;'''
+    from playoffs.game pg
+    join retrosheet.team rthome
+    on rthome.year = pg.year and((rthome.team = pg.winning_team) or (rthome.team = pg.losing_team))
+    join retrosheet.team rtaway
+    on rtaway.year = pg.year and (rtaway.team = pg.winning_team or rtaway.team = pg.losing_team)
+    where rthome.team = pg.home_team and rtaway.team = pg.away_team;'''
 
 # playoff_train_query = '''select * from game where year < 2010'''
 # playoff_test_query = '''select * from game where year >= 2010'''
@@ -500,6 +511,7 @@ def main():
     Y_train = train_df['home_team_won']
     X_test = test_df.drop('home_team', axis=1).drop('away_team', axis=1).drop('year', axis=1).drop('home_team_won', axis=1).drop('CS_diff', axis=1).drop('RAA_diff', axis=1).drop('ERA_diff', axis=1).drop('SF_diff', axis=1).drop('SB_diff', axis=1).drop('SH_diff', axis=1).drop('OPS_diff', axis=1).drop('RpERA_diff', axis=1).drop('SpERA_diff', axis=1).drop('AVG_diff', axis=1).drop('win_pct_diff', axis=1).drop('relief_pct_diff', axis=1).drop('RpFIP_diff', axis=1)
     #X_test = test_df.drop('home_team', axis=1).drop('away_team', axis=1).drop('year', axis=1).drop('home_team_won', axis=1)
+
     scaler = preprocessing.StandardScaler().fit(X_train)
     columns = X_train.columns
     X_train = pd.DataFrame(scaler.transform(X_train), columns=columns)
@@ -510,8 +522,8 @@ def main():
 
     data = [X_train, X_test]
 
-    for dataset in data:
-        dataset.loc[dataset['SpERA_diff']]
+    # for dataset in data:
+    #     dataset.loc[dataset['SpERA_diff']]
     # # Ridge
     # rigde = build_model(linear_model.Ridge(), X_train, Y_train, X_test, True)
 
