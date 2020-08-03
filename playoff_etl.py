@@ -70,7 +70,7 @@ def main():
     '''
     Extract, Transform, and Load playoff data from Retrosheet.
     '''
-    years = [1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019]
+    years = [1990, 1991, 1992, 1993, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019]
     #years = [1990]
     years = [str(i) for i in years]
     teams = set([])
@@ -159,6 +159,7 @@ def main():
             wild_card = {}
             for series_game in series_games:
                 parsed_data = transform_game(series_game, rosters)
+                parsed_data['game'][0]['series_id'] = series
                 results['PlateAppearance'].extend(parsed_data['plate_appearance'])
                 game_wins[parsed_data['game'][0]['winning_team']] += 1
                 game_wins[parsed_data['game'][0]['losing_team']] =  game_wins[parsed_data['game'][0]['losing_team']]
@@ -166,7 +167,6 @@ def main():
                 results['Run'].extend(parsed_data['run'])
                 results['BaseRunningEvent'].extend(parsed_data['base_running_event'])
             for team in game_wins.keys():
-                print(team, home_team_adv_df)
                 league_id = home_team_adv_df[home_team_adv_df['team'] == team]['league'].iloc[0]
                 division_id = home_team_adv_df[home_team_adv_df['team'] == team]['division'].iloc[0]
                 team_info[team]['win_pct'] = home_team_adv_df[home_team_adv_df['team'] == team]['win_pct'].item()
@@ -200,7 +200,7 @@ def main():
         #     results['Game'].extend(parsed_data['game'])
         #     results['Run'].extend(parsed_data['run'])
         #     results['BaseRunningEvent'].extend(parsed_data['base_running_event'])
-    
+    print(results['Game'])
     return results, years
 
 results, years = main()
@@ -210,6 +210,6 @@ print(years)
 create_tables()
 
 # Load collected data into SQL Database
-#load_data(results)
+load_data(results)
 
     

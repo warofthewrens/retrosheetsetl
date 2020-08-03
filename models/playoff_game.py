@@ -6,6 +6,7 @@ class Game(PLAYOFFBASE):
     __tablename__ = 'Game'
 
     game_id = Column(VARCHAR(12), primary_key=True, auto_increment=False)
+    series_id = Column(VARCHAR(8))
     year = Column(INTEGER(5))
     date = Column(DATE)
     home_team = Column(VARCHAR(3))

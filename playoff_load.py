@@ -7,7 +7,8 @@ from models.playoff_br_event import BaseRunningEvent
 from models.series import Series
 from sqlalchemy import MetaData
 import concurrent.futures
-MODELS = [Game, PlateAppearance, Run, BaseRunningEvent, Series]
+# MODELS = [Game, PlateAppearance, Run, BaseRunningEvent, Series]
+MODELS = [Game, Series]
 
 
 def create_tables():

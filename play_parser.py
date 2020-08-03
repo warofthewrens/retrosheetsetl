@@ -92,7 +92,8 @@ def add_error(error_player, play, state):
     @param state - the state of the game
     '''
     play['num_errors'] += 1
-    play[error_dict[play['num_errors']]] = get_field_id(play['is_home'], error_player, state)
+    if error_player.isdigit():
+        play[error_dict[play['num_errors']]] = get_field_id(play['is_home'], int(error_player), state)
 
 def add_po(po_player, play, state):
     '''
@@ -102,7 +103,8 @@ def add_po(po_player, play, state):
     @param state - the state of the game
     '''
     state['po'] += 1
-    play[po_dict[state['po']]] = get_field_id(play['is_home'], po_player, state)
+    if po_player.isdigit():
+        play[po_dict[state['po']]] = get_field_id(play['is_home'], int(po_player), state)
 
 def add_ast(ast_player, play, state):
     '''
@@ -115,7 +117,8 @@ def add_ast(ast_player, play, state):
     state['ast'] += 1
     if (state['ast']) > 5:
         return
-    play[ast_dict[state['ast']]] = get_field_id(play['is_home'], ast_player, state)
+    if ast_player.isdigit():
+        play[ast_dict[state['ast']]] = get_field_id(play['is_home'], int(ast_player), state)
 
 def add_base_running_event(base, play, state, rows, event):
     if event == 'P':

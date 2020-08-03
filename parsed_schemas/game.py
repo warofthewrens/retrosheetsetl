@@ -15,6 +15,7 @@ pos_dict = {
 
 class Game(Schema):
     game_id = fields.String()
+    series_id = fields.String()
     year = fields.Integer()
     date = fields.DateTime()
     away_team = fields.String()

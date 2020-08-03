@@ -1,18 +1,22 @@
 import pandas as pd
 import pymysql
+import math
 from os import walk
 import time
 import shutil
 from models.sqla_utils import ENGINE, BASE, get_session
 from models.teamposition import TeamPosition
 from models.reliefposition import ReliefPosition
+from models.starterposition import StarterPosition
 from parsed_schemas.teamposition import TeamPosition as t
 from parsed_schemas.reliefposition import ReliefPosition as r
+from parsed_schemas.starter_position import StarterPosition as sp
 from extract import extract_roster_team, extract_game_data_by_year
 from extract_fangraphs import extract_fangraphs, extract_park_factors
 
 MODELS = [TeamPosition]
 RELIEFMODELS = [ReliefPosition]
+STARTERMODELS = [StarterPosition]
 
 expand_team = {
     'ARI' : 'Diamondbacks',
@@ -89,6 +93,9 @@ def get_player_position_wRAA(position_pa, player, woba_weights, pf_weights):
     player_dict['wOBA'] = ((bb + hbp + hits)/sabr_PA_no_IBB)
     player_dict['wOBAadj'] = player_dict['wOBA'].item() * player_dict['PPFp']
     player_dict['wRAA'] = (((player_dict['wOBAadj'] - woba_weights.wOBA)/(woba_weights.wOBAScale)) * sabr_PA) 
+    if math.isnan(player_dict['wRAA']):
+        player_dict['wRAA'] = 0
+    print(math.isnan(player_dict['wRAA']))
     return player_dict['wRAA']
 
 def get_team_data(team, year, position_code, pa_data_df, woba_weights, pf_weights):
@@ -109,6 +116,18 @@ def get_team_data(team, year, position_code, pa_data_df, woba_weights, pf_weight
     position_pa = pa_data_df[pa_pos & (pa_data_df.batter_team == team) & (pa_data_df.year == int(year))]
     player_counts = position_pa['batter_id'].value_counts(normalize=True)
     players = position_pa['batter_id'].value_counts().index.to_list()
+    team_dict['team'] = team
+    team_dict['year'] = year
+    team_dict['position_code'] = position_code
+    if position_code == 10:
+        league = pd.read_sql_query(
+            'select league from retrosheet.divisions where old_id = \'' + team + '\' and start_date <= ' + year + ' and end_year >= ' + year,
+            con=ENGINE
+        )
+        print(league)
+        if league.iloc[0].item() == 'NL' and int(year) < 2020:
+            return team_dict
+
     team_dict['PA_first'] = players[0]
     team_dict['PA_first_PA'] = player_counts[0]
     team_dict['PA_first_wRAA'] = get_player_position_wRAA(position_pa, team_dict['PA_first'], woba_weights, pf_weights)
@@ -120,9 +139,7 @@ def get_team_data(team, year, position_code, pa_data_df, woba_weights, pf_weight
         team_dict['PA_third'] = players[2]
         team_dict['PA_third_PA'] = player_counts[2]
         team_dict['PA_third_wRAA'] = get_player_position_wRAA(position_pa, team_dict['PA_third'], woba_weights, pf_weights)
-    team_dict['team'] = team
-    team_dict['year'] = year
-    team_dict['position_code'] = position_code
+
     team_dict['position'] = positions[position_code]
     team_dict['PA'] = position_pa[position_pa.pa_flag == True].pa_flag.count()
     team_dict['AB'] = position_pa[position_pa.ab_flag == True].ab_flag.count()
@@ -175,6 +192,40 @@ def get_relief_team_data(team, year, pa_data_df):
         i+=1
         # print[player_counts[i]]
     return relief_dict
+
+def get_starter_team_data(team, year, pa_data_df):
+    starter_dict = {}
+    starter_dict['team'] = team
+    starter_dict['year'] = year
+    starter_pa = pa_data_df[(pa_data_df.sp_flag == True) & (pa_data_df.pitcher_team == team) & (pa_data_df.year == int(year))]
+    player_counts = starter_pa['pitcher_id'].value_counts(normalize=True)
+    players = starter_pa['pitcher_id'].value_counts().index.to_list()
+    print(team)
+    print(players)
+    i = 0
+    while(i < len(player_counts) and i < 6):
+        query = '''select player_id,WAR from Player where team = \'''' + team + '''\' and year = ''' + year + ''' and player_id = \'''' + players[i] + '''\''''
+        player_df = pd.read_sql_query(
+            query,
+            con=ENGINE
+        )
+        starter_dict['starter_' + str(i+1)] = player_df.iloc[0]['player_id']
+        starter_dict['starter_' + str(i+1) + '_WAR'] = player_df.iloc[0]['WAR']
+        i+=1
+        # print[player_counts[i]]
+    return starter_dict
+
+def get_starter_teams_data(year, pa_data_df):
+    starter_dicts = []
+
+    teams = pa_data_df[pa_data_df.year == int(year)].batter_team.unique()
+
+    for team in teams:
+        starter_dict = get_starter_team_data(team, year, pa_data_df)
+        new_starter = sp().dump(starter_dict)
+        starter_dicts.append(new_starter)
+    print(starter_dicts)
+    return starter_dicts
 
 def get_relief_teams_data(year, pa_data_df):
     relief_dicts = []
@@ -256,6 +307,22 @@ def relief_load(results):
     
     session.commit()
 
+def starter_load(results):
+    BASE.metadata.create_all(tables=[x.__table__ for x in STARTERMODELS], checkfirst=True)
+    session = get_session()
+    for model in STARTERMODELS:
+        data = results[model.__tablename__]
+        i = 0
+        # Here is where we convert directly the dictionary output of our marshmallow schema into sqlalchemy
+        objs = []
+        for row in data:
+            if i % 1000 == 0:
+                print('loading...', i)
+            i+=1
+            session.merge(model(**row))
+    
+    session.commit()
+
 def etl_team_data(year):
     '''
     @param year - string with appropriate year
@@ -290,7 +357,24 @@ def etl_relief_data(year):
     rows['ReliefPosition'].extend(parsed_data)
     relief_load(rows)
 
-#etl_relief_data('2019')
+def etl_starter_data(year):
+    pa_query = '''
+        select * from PlateAppearance where year =
+    ''' + year
+    pa_data_df = pd.concat(list(pd.read_sql_query(
+        pa_query,
+        con = ENGINE,
+        chunksize = 1000
+    )))
+    parsed_data = get_starter_teams_data(year, pa_data_df)
+    rows = {table: [] for table in ['StarterPosition']}
+    rows['StarterPosition'].extend(parsed_data)
+    starter_load(rows)
+
+
 #etl_team_data('2018')
-for i in range(2002, 2019):
-    etl_relief_data(str(i))
+for i in range(2000, 2019):
+    if i != 1994:
+        etl_team_data(str(i))
+        etl_relief_data(str(i))
+        etl_starter_data(str(i))

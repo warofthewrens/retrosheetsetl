@@ -11,4 +11,4 @@ class Series(BASE):
     series = Column(VARCHAR(4))
     winning_team = Column(VARCHAR(3))
     losing_team = Column(VARCHAR(3))
-    team_with_home_team_adv = Column(VARCHAR(3))
+    team_with_home_field_advantage = Column(VARCHAR(3))
