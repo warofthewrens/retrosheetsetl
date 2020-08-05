@@ -9,8 +9,11 @@ from matplotlib import pyplot as plt
 from matplotlib import style
 
 from sklearn import linear_model
+from sklearn import calibration
+from sklearn.ensemble import VotingClassifier
 
 from sklearn.linear_model import LogisticRegression
+from sklearn.calibration import CalibratedClassifierCV
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import Perceptron
 from sklearn.linear_model import SGDClassifier
@@ -36,6 +39,7 @@ from tensorflow.keras import backend as K
 from models.sqla_utils import ENGINE
 from models.sqla_utils import PLAYOFF_ENGINE
 
+from classifiers.EnsembleClassifier import EnsembleClassifier
 
 ranking_test_query = '''
 select pg.home_team, pg.away_team, pg.year, pg.date,
@@ -136,6 +140,79 @@ where home.team = pg.home_team and away.team = pg.away_team and reliefhome.team 
 ;
 '''
 
+series_train_query = '''
+select pg.series_id, pg.winning_team, pg.losing_team, pg.year,
+away.Catcher_Rank - home.Catcher_Rank as catcher_diff,
+away.First_Baseman_Rank - home.First_Baseman_Rank as first_diff,
+away.Second_Baseman_Rank - home.Second_Baseman_Rank as second_diff,
+away.Third_Baseman_Rank - home. Third_Baseman_Rank as third_diff,
+away.Shortstop_Rank - home.Shortstop_Rank as short_diff,
+away.Left_Field_Rank - home.Left_Field_Rank as left_diff,
+away.Center_Field_Rank - home.Center_Field_Rank as center_diff,
+away.Right_Field_Rank - home.Right_Field_Rank as right_diff,
+reliefhome.closer_WAR - reliefaway.closer_WAR as closer_diff,
+(reliefhome.relief_1_WAR + reliefhome.relief_2_WAR + reliefhome.relief_3_WAR - reliefhome.relief_4_WAR) - 
+(reliefaway.relief_1_WAR + reliefaway.relief_2_WAR + reliefaway.relief_3_WAR - reliefaway.relief_4_WAR) as bullpen_diff,
+rotationhome.starter_1_WAR - rotationaway.starter_1_WAR as starter_1_diff,
+rotationhome.starter_2_WAR - rotationaway.starter_2_WAR as starter_2_diff,
+rotationhome.starter_3_WAR - rotationaway.starter_3_WAR as starter_3_diff,
+rotationhome.starter_4_WAR - rotationaway.starter_4_WAR as starter_4_diff,
+rotationhome.starter_5_WAR - rotationaway.starter_5_WAR as starter_5_diff, 
+(pg.team_with_home_field_advantage = pg.winning_team) as home_team_won
+from 
+playoffs.Series pg
+join retrosheet.TeamPositionRank home
+on home.year = pg.year and((home.team = pg.winning_team) or (home.team = pg.losing_team))
+join retrosheet.TeamPositionRank away
+on away.year = pg.year and (away.team = pg.winning_team or away.team = pg.losing_team)
+join retrosheet.ReliefPosition reliefhome
+on reliefhome.year = pg.year and (reliefhome.team = pg.winning_team or reliefhome.team = pg.losing_team)
+join retrosheet.ReliefPosition reliefaway
+on reliefaway.year = pg.year and (reliefaway.team = pg.winning_team or reliefaway.team = pg.losing_team)
+join retrosheet.StarterPosition rotationhome
+on rotationhome.year = pg.year and (rotationhome.team = pg.winning_team or rotationhome.team = pg.losing_team)
+join retrosheet.StarterPosition rotationaway
+on rotationaway.year = pg.year and (rotationaway.team = pg.winning_team or rotationaway.team = pg.losing_team)
+where home.team = pg.team_with_home_field_advantage and away.team != pg.team_with_home_field_advantage and reliefhome.team = pg.team_with_home_field_advantage and reliefaway.team != pg.team_with_home_field_advantage 
+and rotationhome.team = pg.team_with_home_field_advantage and rotationaway.team != pg.team_with_home_field_advantage and pg.year < 2015;
+'''
+
+series_test_query = '''
+select pg.series_id, pg.winning_team, pg.losing_team, pg.year,
+away.Catcher_Rank - home.Catcher_Rank as catcher_diff,
+away.First_Baseman_Rank - home.First_Baseman_Rank as first_diff,
+away.Second_Baseman_Rank - home.Second_Baseman_Rank as second_diff,
+away.Third_Baseman_Rank - home. Third_Baseman_Rank as third_diff,
+away.Shortstop_Rank - home.Shortstop_Rank as short_diff,
+away.Left_Field_Rank - home.Left_Field_Rank as left_diff,
+away.Center_Field_Rank - home.Center_Field_Rank as center_diff,
+away.Right_Field_Rank - home.Right_Field_Rank as right_diff,
+reliefhome.closer_WAR - reliefaway.closer_WAR as closer_diff,
+(reliefhome.relief_1_WAR + reliefhome.relief_2_WAR + reliefhome.relief_3_WAR - reliefhome.relief_4_WAR) - 
+(reliefaway.relief_1_WAR + reliefaway.relief_2_WAR + reliefaway.relief_3_WAR - reliefaway.relief_4_WAR) as bullpen_diff,
+rotationhome.starter_1_WAR - rotationaway.starter_1_WAR as starter_1_diff,
+rotationhome.starter_2_WAR - rotationaway.starter_2_WAR as starter_2_diff,
+rotationhome.starter_3_WAR - rotationaway.starter_3_WAR as starter_3_diff,
+rotationhome.starter_4_WAR - rotationaway.starter_4_WAR as starter_4_diff,
+rotationhome.starter_5_WAR - rotationaway.starter_5_WAR as starter_5_diff, 
+(pg.team_with_home_field_advantage = pg.winning_team) as home_team_won
+from 
+playoffs.Series pg
+join retrosheet.TeamPositionRank home
+on home.year = pg.year and((home.team = pg.winning_team) or (home.team = pg.losing_team))
+join retrosheet.TeamPositionRank away
+on away.year = pg.year and (away.team = pg.winning_team or away.team = pg.losing_team)
+join retrosheet.ReliefPosition reliefhome
+on reliefhome.year = pg.year and (reliefhome.team = pg.winning_team or reliefhome.team = pg.losing_team)
+join retrosheet.ReliefPosition reliefaway
+on reliefaway.year = pg.year and (reliefaway.team = pg.winning_team or reliefaway.team = pg.losing_team)
+join retrosheet.StarterPosition rotationhome
+on rotationhome.year = pg.year and (rotationhome.team = pg.winning_team or rotationhome.team = pg.losing_team)
+join retrosheet.StarterPosition rotationaway
+on rotationaway.year = pg.year and (rotationaway.team = pg.winning_team or rotationaway.team = pg.losing_team)
+where home.team = pg.team_with_home_field_advantage and away.team != pg.team_with_home_field_advantage and reliefhome.team = pg.team_with_home_field_advantage and reliefaway.team != pg.team_with_home_field_advantage 
+and rotationhome.team = pg.team_with_home_field_advantage and rotationaway.team != pg.team_with_home_field_advantage and pg.year >= 2015;'''
+
 train_df = pd.read_sql_query(
     ranking_train_query,
     con = ENGINE
@@ -150,6 +227,22 @@ test_df = pd.read_sql_query(
     ranking_test_query,
     con=ENGINE
 )
+
+series_train_df = pd.read_sql_query(
+    series_train_query,
+    con=ENGINE
+)
+
+series_test_df = pd.read_sql_query(
+    series_test_query,
+    con=ENGINE
+)
+
+print('train', len(train_df))
+print('test', len(test_df))
+
+print('series train', len(series_train_df))
+print('series test', len(series_test_df))
 
 param_distributions = {}
 loss = ['hinge', 'log', 'modified_huber', 'squared_hinge', 'perceptron']
@@ -337,7 +430,7 @@ def continuous_validation(model, X_train, Y_train, Y_pred):
     print('false positives', fp)
     print('false negatives', fn)
 
-def cross_validation(model, X_train, Y_train, Y_pred):
+def cross_validation(model, X_train, Y_train, Y_pred, Y_test):
     '''
     print out cross validation and other metrics given a model
     @param model - the model to measure
@@ -345,20 +438,20 @@ def cross_validation(model, X_train, Y_train, Y_pred):
     @param Y_train - the data to predict
     @param Y_pred - the prediction the model made on the test data
     '''
-    Y_test = test_df['home_team_won']
+    # Y_test = test_df['home_team_won']
     # Y_test.replace(0, -1, inplace=True)
     print()
-    predictions = cross_val_predict(model, X_train, Y_train, cv=3)
-    print(confusion_matrix(Y_train, predictions))
+    #predictions = cross_val_predict(model, X_train, Y_train, cv=3)
+    #print(confusion_matrix(Y_train, predictions))
 
-    print("Precision:", precision_score(Y_train, predictions))
-    print("Recall:",recall_score(Y_train, predictions))
-    print()
-    print('Cross validation')
-    scores = cross_val_score(model, X_train, Y_train, cv=4, scoring = "accuracy")
-    print("Scores:", scores)
-    print("Mean:", scores.mean())
-    print("Standard Deviation:", scores.std())
+    # print("Precision:", precision_score(Y_train, predictions))
+    # print("Recall:",recall_score(Y_train, predictions))
+    # print()
+    # print('Cross validation')
+    # scores = cross_val_score(model, X_train, Y_train, cv=4, scoring = "accuracy")
+    # print("Scores:", scores)
+    # print("Mean:", scores.mean())
+    # print("Standard Deviation:", scores.std())
     print()
     print('Test Data')
     tp = 0
@@ -382,6 +475,12 @@ def cross_validation(model, X_train, Y_train, Y_pred):
     print('true negatives', tn)
     print('false positives', fp)
     print('false negatives', fn)
+
+def probability_evaluation(Y_test, Y_prob_pred):
+    loss = 0
+    for i in range(len(Y_test)):
+        loss += abs(Y_test[i] - Y_prob_pred[i][0])
+    print('avg_loss:', loss / len(Y_test))
 
 def plot_learning_curve(model, X_train, Y_train):
     # Create CV training and test scores for various training set sizes
@@ -419,7 +518,7 @@ def plot_learning_curve(model, X_train, Y_train):
     plt.tight_layout()
     plt.show()
 
-def build_model(model, X_train, Y_train, X_test, hyperparam=True):
+def build_model(model, X_train, Y_train, X_test, Y_test, hyperparam=False):
     '''
     Taking a model and data train the model and predict test data before printing a series of metrics
     @param model - the model to train
@@ -429,15 +528,19 @@ def build_model(model, X_train, Y_train, X_test, hyperparam=True):
     '''
     model.fit(X_train, Y_train)
     Y_pred = model.predict(X_test)
+    #Y_prob_pred = model.predict_proba(X_test)
     accuracy(model, X_train, Y_train)
     # if not continuous:
-    cross_validation(model, X_train, Y_train, Y_pred)
+    
+    #probability_evaluation(Y_test, Y_prob_pred)
+    cross_validation(model, X_train, Y_train, Y_pred, Y_test)
     # else:
     #     continuous_validation(model, X_train, Y_train, Y_pred)
     permutation_importance_model(model, X_train, Y_train)
     #plot_learning_curve(model, X_train, Y_train)
     if hyperparam:
         hyper_parameters(model, X_train, Y_train)
+    return model
 
 def calculate_spe(y):
   return int(math.ceil((1. * y) / batch_size))
@@ -463,53 +566,127 @@ def main():
     X_playoff_train = playoff_train_df.drop('home_team', axis=1).drop('away_team', axis=1).drop('year', axis=1).drop('home_team_won', axis=1).drop('date', axis=1)
     Y_playoff_train = playoff_train_df['home_team_won']
 
+    X_series_train = series_train_df.drop('series_id', axis=1).drop('winning_team', axis=1).drop('losing_team', axis=1).drop('year', axis=1).drop('home_team_won', axis=1)
+    Y_series_train = series_train_df['home_team_won']
+
     X_test = test_df.drop('home_team', axis=1).drop('away_team', axis=1).drop('year', axis=1).drop('home_team_won', axis=1).drop('date', axis=1)
+    X_series_test = series_test_df.drop('series_id', axis=1).drop('winning_team', axis=1).drop('losing_team', axis=1).drop('year', axis=1).drop('home_team_won', axis=1)
 
     scaler = preprocessing.StandardScaler().fit(X_train)
     columns = X_train.columns
     X_train = pd.DataFrame(scaler.transform(X_train), columns=columns)
     X_test = pd.DataFrame(scaler.transform(X_test), columns=columns)
+
+    playoff_scaler = preprocessing.StandardScaler().fit(X_playoff_train)
+    playoff_columns = X_playoff_train.columns
+    X_playoff_train = pd.DataFrame(playoff_scaler.transform(X_playoff_train), columns=playoff_columns)
+
+    series_scaler = preprocessing.StandardScaler().fit(X_series_train)
+    series_columns = X_series_train.columns
+    X_series_train = pd.DataFrame(series_scaler.transform(X_series_train), columns=series_columns)
+    X_series_test = pd.DataFrame(series_scaler.transform(X_series_test), columns = series_columns)
+    
+    
     Y_test = test_df['home_team_won']
+    Y_series_test = series_test_df['home_team_won']
 
-    sgd = build_model(linear_model.SGDClassifier(max_iter=1000, tol=None), X_train, Y_train, X_test, True)
+    sgd = linear_model.SGDClassifier(max_iter=1000, tol=None)
+    clf = sgd.fit(X_train,  Y_train)
+    calibrator = calibration.CalibratedClassifierCV(clf, cv='prefit')
+    calibrator = build_model(calibrator, X_train, Y_train, X_test, Y_test)
 
-    print('TRAINED on PLAYOFFS')
-    playoff_sgd = build_model(linear_model.SGDClassifier(max_iter=1000, tol=None), X_playoff_train, Y_playoff_train, X_test, True)
+    playoff_sgd = linear_model.SGDClassifier(max_iter=1000, tol=None)
+    playoff_clf = playoff_sgd.fit(X_train,  Y_train)
+    playoff_calibrator = calibration.CalibratedClassifierCV(playoff_clf, cv='prefit')
+    playoff_calibrator = build_model(playoff_calibrator, X_playoff_train, Y_playoff_train, X_test, Y_test)
+
+    # playoff_sgd = build_model(linear_model.SGDClassifier(max_iter=1000, tol=None, penalty='l2', loss='squared_hinge', learning_rate='adaptive', eta0 = 10, class_weight = {1:0.6, 0:0.4}, alpha=0.01), 
+    #                             X_playoff_train, Y_playoff_train, X_test, Y_test, True)
+    series_sgd = linear_model.SGDClassifier(max_iter=1000, tol=None, penalty='l2')
+    series_clf = series_sgd.fit(X_series_train,  Y_series_train)
+    series_calibrator = calibration.CalibratedClassifierCV(series_clf, cv='prefit')
+    series_calibrator = build_model(series_calibrator, X_series_train, Y_series_train, X_series_test, Y_series_test)
+    
+    #series_sgd = build_model(linear_model.SGDClassifier(max_iter=1000, tol=None, penalty = 'l2', loss='perceptron', learning_rate='constant', eta0=1, class_weight={1: 0.5, 0:0.5}, alpha = 10), X_series_train, Y_series_train, X_series_test, Y_series_test, True)
     # Random Forest
     random_forest = build_model(RandomForestClassifier(n_estimators=50, min_samples_split = 4, max_features='log2', criterion='entropy', 
-                                class_weight='balanced', ccp_alpha=.001), X_train, Y_train, X_test, True)
+                                class_weight='balanced', ccp_alpha=.001), X_train, Y_train, X_test, Y_test)
     
     playoff_random_forest = build_model(RandomForestClassifier(n_estimators=50, min_samples_split = 4, max_features='log2', criterion='entropy', 
-                                class_weight='balanced', ccp_alpha=.001), X_playoff_train, Y_playoff_train, X_test, True)
-  
+                                class_weight='balanced', ccp_alpha=.001), X_playoff_train, Y_playoff_train, X_test, Y_test, True)
+    
+    series_random_forest = build_model(RandomForestClassifier(n_estimators=50, min_samples_split = 4, max_features='log2', criterion='entropy', 
+                                class_weight='balanced', ccp_alpha=.001), X_series_train, Y_series_train, X_series_test, Y_series_test, True)
+
     # Logistic Regression
     log = build_model(LogisticRegression(max_iter=10000, tol=0.001, solver='liblinear', penalty='l1', multi_class='ovr', 
-                                        class_weight={1:0.5, 0:0.5}, C=0.1), X_train, Y_train, X_test, True)
+                                        class_weight={1:0.5, 0:0.5}, C=0.1), X_train, Y_train, X_test, Y_test)
     
     playoff_log = build_model(LogisticRegression(max_iter=10000, tol=0.001, solver='liblinear', penalty='l1', multi_class='ovr', 
-                                        class_weight={1:0.5, 0:0.5}, C=0.1), X_playoff_train, Y_playoff_train, X_test, True)
+                                        class_weight={1:0.5, 0:0.5}, C=0.1), X_playoff_train, Y_playoff_train, X_test, Y_test)
 
+    series_log = build_model(LogisticRegression(max_iter=10000, tol=0.001, solver='liblinear', penalty='l1', multi_class='ovr', 
+                                        class_weight={1:0.5, 0:0.5}, C=0.1), X_series_train, Y_series_train, X_series_test, Y_series_test)
 
     # KNN 
     # build_model(KNeighborsClassifier(n_neighbors = 3), X_train, Y_train, X_test)
 
     # Gaussian
     gaussian = GaussianNB()
-    build_model(gaussian, X_train, Y_train, X_test, True)
+    build_model(gaussian, X_train, Y_train, X_test, Y_test)
     cross_val_score(gaussian, X_train, Y_train, cv=5, scoring='accuracy')
 
     playoff_gaussian = GaussianNB()
-    build_model(playoff_gaussian, X_playoff_train, Y_playoff_train, X_test, True)
+    build_model(playoff_gaussian, X_playoff_train, Y_playoff_train, X_test, Y_test)
     cross_val_score(playoff_gaussian, X_train, Y_train, cv=5, scoring='accuracy')
 
+    series_gaussian = GaussianNB()
+    build_model(series_gaussian, X_series_train, Y_series_train, X_series_test, Y_series_test)
+    cross_val_score(series_gaussian, X_series_train, Y_series_train, cv=5, scoring='accuracy')
 
     # Perceptron
-    perceptron = build_model(Perceptron(max_iter=10000, penalty='l2', eta0=10, class_weight={1: 0.6, 0: 0.4}, alpha=0.0001), X_train, Y_train, X_test)
+    perceptron = build_model(Perceptron(max_iter=10000, penalty='l2', eta0=10, class_weight={1: 0.6, 0: 0.4}, alpha=0.0001), X_train, Y_train, X_test, Y_test)
 
-    playoff_perceptron = build_model(Perceptron(max_iter=10000, penalty='l2', eta0=10, class_weight={1: 0.6, 0: 0.4}, alpha=0.0001), X_playoff_train, Y_playoff_train, X_test)
+    playoff_perceptron = build_model(Perceptron(max_iter=10000, penalty='l2', eta0=10, class_weight={1: 0.6, 0: 0.4}, alpha=0.0001), X_playoff_train, Y_playoff_train, X_test, Y_test, True)
+
+    series_perceptron = build_model(Perceptron(max_iter=10000, penalty='l2', eta0=1, class_weight={1: 0.4, 0: 0.6}, alpha=10), X_series_train, Y_series_train, X_series_test, Y_series_test, True)
 
     # Decision Tree
-    d_tree = build_model(DecisionTreeClassifier(splitter='best', min_samples_split=4, max_features='log2', criterion='entropy', class_weight={1:0.5, 0:0.5}, ccp_alpha=0.0001), X_train, Y_train, X_test)
-    playoff_d_tree = build_model(DecisionTreeClassifier(splitter='best', min_samples_split=4, max_features='log2', criterion='entropy', class_weight={1:0.5, 0:0.5}, ccp_alpha=0.0001), X_playoff_train, Y_playoff_train, X_test)
+    d_tree = build_model(DecisionTreeClassifier(splitter='best', min_samples_split=4, max_features='log2', criterion='entropy', class_weight={1:0.5, 0:0.5}, ccp_alpha=0.0001), X_train, Y_train, X_test, Y_test)
+    playoff_d_tree = build_model(DecisionTreeClassifier(splitter='best', min_samples_split=4, max_features='log2', criterion='entropy', class_weight={1:0.5, 0:0.5}, ccp_alpha=0.0001), X_playoff_train, Y_playoff_train, X_test, Y_test, True)
+    series_d_tree = build_model(DecisionTreeClassifier(splitter='best', min_samples_split=3, max_features='log2', criterion='entropy', class_weight={1:0.5, 0:0.5}, ccp_alpha=0.0001), X_series_train, Y_series_train, X_series_test, Y_series_test, True)
 
+
+
+    eclf1 = VotingClassifier(estimators=[
+        ('sgd', sgd), ('rf', random_forest), ('gnb', gaussian), ('dtree', d_tree)], voting='hard'
+    )
+
+    eclf2 = VotingClassifier(estimators=[
+        ('rf', random_forest), ('gnb', gaussian), ('dtree', d_tree)], voting='soft'
+    )
+    
+    eclf = EnsembleClassifier(
+        clfs=[random_forest, gaussian, d_tree]
+    )
+    build_model(eclf1, X_train, Y_train, X_test, Y_test)
+    build_model(eclf2, X_train, Y_train, X_test, Y_test)
+    build_model(eclf, X_train, Y_train, X_test, Y_test)
+
+    eclf1 = VotingClassifier(estimators=[
+        ('sgd', calibrator), ('rf', random_forest), ('lr', log), ('gnb', gaussian), ('dtree', d_tree)], voting='hard'
+    )
+
+    eclf2 = VotingClassifier(estimators=[
+        ('sgd', calibrator), ('rf', random_forest), ('lr', log), ('gnb', gaussian), ('dtree', d_tree)], voting='soft'
+    )
+
+    eclf3 = VotingClassifier(estimators=[
+        ('sgd', calibrator), ('rf', random_forest), ('lr', log), ('gnb', gaussian), ('dtree', d_tree)], voting='soft', weights=[.2, .2, .1, .3, .2]
+    )
+    
+
+    build_model(eclf1, X_train, Y_train, X_test, Y_test)
+    build_model(eclf2, X_train, Y_train, X_test, Y_test)
+    build_model(eclf3, X_train, Y_train, X_test, Y_test)
 main()

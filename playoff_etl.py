@@ -200,7 +200,7 @@ def main():
         #     results['Game'].extend(parsed_data['game'])
         #     results['Run'].extend(parsed_data['run'])
         #     results['BaseRunningEvent'].extend(parsed_data['base_running_event'])
-    print(results['Game'])
+    #print(results['Game'])
     return results, years
 
 results, years = main()

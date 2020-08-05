@@ -31,9 +31,9 @@ def load_data(results):
         objs = []
         games = set([])
         for row in data:
-            #session.merge(model(**row))
-            objs.append(model(**row))
+            session.merge(model(**row))
+            #objs.append(model(**row))
             i += 1
-        session.bulk_save_objects(objs)
+        #session.bulk_save_objects(objs)
     session.commit()
     print('loaded')

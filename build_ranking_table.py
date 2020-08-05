@@ -25,7 +25,7 @@ def query_position(position, year):
         query,
         con=ENGINE
     )
-    position_rank_df.columns = ['team', 'wRAA', positions[position] + '_Rank']
+    position_rank_df.columns = ['team', 'wRAA', '_'.join(positions[position].split()) + '_Rank']
     position_rank_df = position_rank_df.drop('wRAA', axis=1)
     position_rank_df['year'] = year
     return position_rank_df
@@ -34,7 +34,9 @@ def main():
     columns = ['team', 'year']
     #position_rank_df = pd.DataFrame(columns=['team', 'Catcher_Rank', 'position_x', 'year', 'First Baseman_Rank_x', 'position_y', 'Second Baseman_Rank_x', 'Third Baseman_Rank_x', 'Shortstop_Rank_x', 'Left Field_Rank_x', 'Center Field_Rank_x', 'Right Field_Rank_x', 'Catcher_Rank_y', 'First Baseman_Rank_y', 'Second Baseman_Rank_y', 'Third Baseman_Rank_y', 'Shortstop_Rank_y', 'Left Field_Rank_y', 'Center Field_Rank_y', 'Right Field_Rank_y'])
     position_rank_df = pd.DataFrame(columns=['team', 'year'])
-    for year in range(2002, 2020):
+    for year in range(1990, 2020):
+        if year == 1994:
+            continue
         year_rank_df = pd.DataFrame(columns=columns)
         for position in range(2, 10):
             year_rank_df = pd.merge(year_rank_df, query_position(position, year), how='right', left_on = ['team', 'year'], right_on = ['team', 'year'])

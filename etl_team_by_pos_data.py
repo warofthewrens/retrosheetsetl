@@ -95,7 +95,6 @@ def get_player_position_wRAA(position_pa, player, woba_weights, pf_weights):
     player_dict['wRAA'] = (((player_dict['wOBAadj'] - woba_weights.wOBA)/(woba_weights.wOBAScale)) * sabr_PA) 
     if math.isnan(player_dict['wRAA']):
         player_dict['wRAA'] = 0
-    print(math.isnan(player_dict['wRAA']))
     return player_dict['wRAA']
 
 def get_team_data(team, year, position_code, pa_data_df, woba_weights, pf_weights):
@@ -124,7 +123,6 @@ def get_team_data(team, year, position_code, pa_data_df, woba_weights, pf_weight
             'select league from retrosheet.divisions where old_id = \'' + team + '\' and start_date <= ' + year + ' and end_year >= ' + year,
             con=ENGINE
         )
-        print(league)
         if league.iloc[0].item() == 'NL' and int(year) < 2020:
             return team_dict
 
@@ -200,8 +198,6 @@ def get_starter_team_data(team, year, pa_data_df):
     starter_pa = pa_data_df[(pa_data_df.sp_flag == True) & (pa_data_df.pitcher_team == team) & (pa_data_df.year == int(year))]
     player_counts = starter_pa['pitcher_id'].value_counts(normalize=True)
     players = starter_pa['pitcher_id'].value_counts().index.to_list()
-    print(team)
-    print(players)
     i = 0
     while(i < len(player_counts) and i < 6):
         query = '''select player_id,WAR from Player where team = \'''' + team + '''\' and year = ''' + year + ''' and player_id = \'''' + players[i] + '''\''''
@@ -373,8 +369,8 @@ def etl_starter_data(year):
 
 
 #etl_team_data('2018')
-for i in range(2000, 2019):
+for i in range(1990, 2020):
     if i != 1994:
         etl_team_data(str(i))
-        etl_relief_data(str(i))
-        etl_starter_data(str(i))
+        # etl_relief_data(str(i))
+        # etl_starter_data(str(i))
