@@ -28,3 +28,6 @@ Separately you can run:
 -y flag - any 4-digit year for which retrosheet has MLB data (since 1950 for best results)
 
 This proram will do the same as the above but only for the given year's playoff games
+
+Once you have an appropriate amount of data you can use the playoffpredictionmodel.py to model
+playoff games base on past makeup of playoff teams
