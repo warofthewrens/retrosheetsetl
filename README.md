@@ -15,7 +15,7 @@ Once that is active you can run:
 -y flag - any 4-digit year for which retrosheet has MLB data (since 1950 for best results)
 
 This program will get play by play statistics for every plate appearance in the given year and load them into the SQL
-database as specified by models/sqla_utils.py
+database as specified by models/db_utils.py
 
 Once it has completed that it will use the database to calculate player, team, and league statistics for the given year
 and load these statistics into the database.
