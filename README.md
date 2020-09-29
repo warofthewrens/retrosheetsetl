@@ -1,7 +1,8 @@
 # retrosheetsetl
 
-In order to properly load into the SQL database you will need to change your information in the models/sqla_utils.py document
-You will need to change USERNAME, PASSWORD, IPADDR, and REGISTER
+In order to properly load into the SQL database you will need to change your information in the models/db_utils_sample.py document 
+and rename the file db_utils.py
+You will need to change username, password, ipaddr, and register
 
 To begin the environment so that you have the correct packages run the command:
 
@@ -9,7 +10,7 @@ To begin the environment so that you have the correct packages run the command:
 
 Once that is active you can run:
 
-./retrosheet-etl.py -y YEAR (-t TEAM)
+./retrosheet-etl.py -y YEAR
 
 -y flag - any 4-digit year for which retrosheet has MLB data (since 1950 for best results)
 
@@ -20,3 +21,10 @@ Once it has completed that it will use the database to calculate player, team, a
 and load these statistics into the database.
 
 The program takes quite a while to run. Expect 15-30 minutes for one year.
+
+Separately you can run:
+./playoff-etl.py -y YEAR
+
+-y flag - any 4-digit year for which retrosheet has MLB data (since 1950 for best results)
+
+This proram will do the same as the above but only for the given year's playoff games

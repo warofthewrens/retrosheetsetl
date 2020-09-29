@@ -2,20 +2,21 @@
 from sqlalchemy import create_engine, Column, MetaData, Table, Integer, Date, String, Float, event, exc
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import Session
+from dbutils import username,password,ipaddr,register
 import os
 #from marshmallow_schemas.schema_utils import password
 
-USERNAME = 'FILL IN YOUR MYSQL USERNAME' # MySql username
+USERNAME = username # MySql username
 
-PASSWORD = 'MYSQL PASSWORD' # MySQL password
+PASSWORD = 'Carlton32DeJesus18' # MySQL password
 
-IPADDR = 'IP ADDRESS FOR THE DATABASE' # IPADDRESS for the database to connect to (like 10.176.123.23)
+IPADDR = '' # IPADDRESS for the database to connect to (like 10.176.123.23)
 
 REGISTER = 'REGISTER FOR DATABASE' # register for the database (probably 3306)
 
 
-ENGINE = create_engine('mysql+pymysql://' + USERNAME + ':' + PASSWORD + '@' + IPADDR + ':' + REGISTER + '/retrosheet', echo=False)
-PLAYOFF_ENGINE = create_engine('mysql+pymysql://' + USERNAME + ':' + PASSWORD + '@' + IPADDR + ':' + REGISTER + '/playoffs', echo=False)
+ENGINE = create_engine('mysql+pymysql://' + username + ':' + password + '@' + ipaddr + ':' + register + '/retrosheet', echo=False)
+PLAYOFF_ENGINE = create_engine('mysql+pymysql://' + username + ':' + password + '@' + ipaddr + ':' + register + '/playoffs', echo=False)
 
 engine = create_engine("sqlite:///myexample.db")  # Access the DB Engine
 if not engine.dialect.has_table(engine, 'PlateAppearance'):  # If table don't exist, Create.
