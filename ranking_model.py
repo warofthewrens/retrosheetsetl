@@ -42,7 +42,7 @@ from models.sqla_utils import PLAYOFF_ENGINE
 from classifiers.EnsembleClassifier import EnsembleClassifier
 
 ranking_test_query = '''
-select pg.home_team, pg.away_team, pg.year, pg.date,
+select pg.home_team, pg.away_team, pg.year, pg.date, sphome.player_name as starting_home, spaway.player_name as starting_away,
 away.Catcher_Rank - home.Catcher_Rank as catcher_diff,
 away.First_Baseman_Rank - home.First_Baseman_Rank as first_diff,
 away.Second_Baseman_Rank - home.Second_Baseman_Rank as second_diff,
@@ -108,7 +108,7 @@ where home.team = pg.home_team and away.team = pg.away_team and reliefhome.team 
 '''
 
 ranking_train_query = '''
-select pg.home_team, pg.away_team, pg.year, pg.date,
+select pg.home_team, pg.away_team, pg.year, pg.date, sphome.player_name as starting_home, spaway.player_name as starting_away,
 away.Catcher_Rank - home.Catcher_Rank as catcher_diff,
 away.First_Baseman_Rank - home.First_Baseman_Rank as first_diff,
 away.Second_Baseman_Rank - home.Second_Baseman_Rank as second_diff,
@@ -476,11 +476,30 @@ def cross_validation(model, X_train, Y_train, Y_pred, Y_test):
     print('false positives', fp)
     print('false negatives', fn)
 
-def probability_evaluation(Y_test, Y_prob_pred):
+def probability_evaluation(Y_test, Y_prob_pred, test_df):
     loss = 0
+    underdog = {'max_dog': 0}
     for i in range(len(Y_test)):
-        loss += abs(Y_test[i] - Y_prob_pred[i][0])
+        new_loss = abs(Y_test[i] - Y_prob_pred[i][1])
+        loss += new_loss
+        
+        if new_loss > underdog['max_dog']:
+            underdog['max_dog'] = new_loss
+            if test_df.iloc[i]['home_team_won']:
+                underdog['winning_team'] = test_df.iloc[i]['home_team']
+                underdog['losing_team'] = test_df.iloc[i]['away_team']
+            else:
+                underdog['winning_team'] = test_df.iloc[i]['away_team']
+                underdog['losing_team'] = test_df.iloc[i]['home_team']
+            underdog['date'] = test_df.iloc[i]['date']
+            print(test_df.iloc[i]['home_team'])
+            print(test_df.iloc[i]['away_team'])
+            print(test_df.iloc[i]['starting_home'])
+            print(test_df.iloc[i]['starting_away'])
+            print(Y_test[i], Y_prob_pred[i][1])
+            print(underdog)
     print('avg_loss:', loss / len(Y_test))
+    print(underdog)
 
 def plot_learning_curve(model, X_train, Y_train):
     # Create CV training and test scores for various training set sizes
@@ -560,7 +579,7 @@ def hyper_parameters(model, X_train, Y_train):
     print('Best Params: ', random_result.best_params_)
 
 def main():
-    X_train = train_df.drop('home_team', axis=1).drop('away_team', axis=1).drop('year', axis=1).drop('home_team_won', axis=1).drop('date', axis=1)
+    X_train = train_df.drop('home_team', axis=1).drop('away_team', axis=1).drop('year', axis=1).drop('home_team_won', axis=1).drop('date', axis=1).drop('starting_home', axis=1).drop('starting_away', axis=1)
     Y_train = train_df['home_team_won']
 
     X_playoff_train = playoff_train_df.drop('home_team', axis=1).drop('away_team', axis=1).drop('year', axis=1).drop('home_team_won', axis=1).drop('date', axis=1)
@@ -569,7 +588,7 @@ def main():
     X_series_train = series_train_df.drop('series_id', axis=1).drop('winning_team', axis=1).drop('losing_team', axis=1).drop('year', axis=1).drop('home_team_won', axis=1)
     Y_series_train = series_train_df['home_team_won']
 
-    X_test = test_df.drop('home_team', axis=1).drop('away_team', axis=1).drop('year', axis=1).drop('home_team_won', axis=1).drop('date', axis=1)
+    X_test = test_df.drop('home_team', axis=1).drop('away_team', axis=1).drop('year', axis=1).drop('home_team_won', axis=1).drop('date', axis=1).drop('starting_home', axis=1).drop('starting_away', axis=1)
     X_series_test = series_test_df.drop('series_id', axis=1).drop('winning_team', axis=1).drop('losing_team', axis=1).drop('year', axis=1).drop('home_team_won', axis=1)
 
     scaler = preprocessing.StandardScaler().fit(X_train)
@@ -611,6 +630,10 @@ def main():
     # Random Forest
     random_forest = build_model(RandomForestClassifier(n_estimators=50, min_samples_split = 4, max_features='log2', criterion='entropy', 
                                 class_weight='balanced', ccp_alpha=.001), X_train, Y_train, X_test, Y_test)
+    
+    Y_prob_pred = random_forest.predict_proba(X_test)
+
+    probability_evaluation(Y_test, Y_prob_pred, test_df)
     
     playoff_random_forest = build_model(RandomForestClassifier(n_estimators=50, min_samples_split = 4, max_features='log2', criterion='entropy', 
                                 class_weight='balanced', ccp_alpha=.001), X_playoff_train, Y_playoff_train, X_test, Y_test, True)
@@ -671,22 +694,26 @@ def main():
     )
     build_model(eclf1, X_train, Y_train, X_test, Y_test)
     build_model(eclf2, X_train, Y_train, X_test, Y_test)
-    build_model(eclf, X_train, Y_train, X_test, Y_test)
+    eclf = build_model(eclf, X_train, Y_train, X_test, Y_test)
 
-    eclf1 = VotingClassifier(estimators=[
-        ('sgd', calibrator), ('rf', random_forest), ('lr', log), ('gnb', gaussian), ('dtree', d_tree)], voting='hard'
-    )
+    Y_prob_pred = eclf.predict_proba(X_train)
 
-    eclf2 = VotingClassifier(estimators=[
-        ('sgd', calibrator), ('rf', random_forest), ('lr', log), ('gnb', gaussian), ('dtree', d_tree)], voting='soft'
-    )
+    probability_evaluation(Y_train, Y_prob_pred, train_df)
 
-    eclf3 = VotingClassifier(estimators=[
-        ('sgd', calibrator), ('rf', random_forest), ('lr', log), ('gnb', gaussian), ('dtree', d_tree)], voting='soft', weights=[.2, .2, .1, .3, .2]
-    )
+    # eclf1 = VotingClassifier(estimators=[
+    #     ('sgd', calibrator), ('rf', random_forest), ('lr', log), ('gnb', gaussian), ('dtree', d_tree)], voting='hard'
+    # )
+
+    # eclf2 = VotingClassifier(estimators=[
+    #     ('sgd', calibrator), ('rf', random_forest), ('lr', log), ('gnb', gaussian), ('dtree', d_tree)], voting='soft'
+    # )
+
+    # eclf3 = VotingClassifier(estimators=[
+    #     ('sgd', calibrator), ('rf', random_forest), ('lr', log), ('gnb', gaussian), ('dtree', d_tree)], voting='soft', weights=[.2, .2, .1, .3, .2]
+    # )
     
 
-    build_model(eclf1, X_train, Y_train, X_test, Y_test)
-    build_model(eclf2, X_train, Y_train, X_test, Y_test)
-    build_model(eclf3, X_train, Y_train, X_test, Y_test)
+    # build_model(eclf1, X_train, Y_train, X_test, Y_test)
+    # build_model(eclf2, X_train, Y_train, X_test, Y_test)
+    # build_model(eclf3, X_train, Y_train, X_test, Y_test)
 main()
